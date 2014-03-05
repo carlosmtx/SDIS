@@ -1,12 +1,15 @@
+import sun.awt.Mutex;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.*;
+import java.util.Arrays;
 import java.util.Stack;
 import java.util.Vector;
 
 /**
- * Created by Papa Formigas on 26-02-2014.
+ * Created by Sr. Lelo da Purificacao(Malucos do Riso desde 1995) on 26-02-2014.
  * Class Peer
  */
 public class Peer {
@@ -20,50 +23,48 @@ public class Peer {
 
     Vector<Thread> BackupThreads;
     Vector<Thread> RecoveryThreads;
-
+    ThreadMenu     MenuThread;
     Stack<String> sentStack;
+
+    Mutex commandStackMutex;
+    Stack<String> commands;
 
     Peer(String MCControlIP,String MCRecoveryIP,String MCBackupIP)throws UnknownHostException,IOException{
         int port = 2000;
-        this.MCBackupVIP   = InetAddress.getByName(MCBackupIP);
-        this.MCRecoveryVIP = InetAddress.getByName(MCRecoveryIP);
-        this.MCControlVIP  = InetAddress.getByName(MCControlIP);
+        this.MCBackupVIP   = InetAddress.getByName(MCBackupIP);                                             /*Network IP for Backup communications*/
+        this.MCRecoveryVIP = InetAddress.getByName(MCRecoveryIP);                                           /*Network IP for Recovery communications */
+        this.MCControlVIP  = InetAddress.getByName(MCControlIP);                                            /*Network IP for Control communications*/
 
-        MCControlSock = new MulticastSocket(port);
-        MCControlSock.joinGroup(MCControlVIP);
+        this.MCControlSock = new MulticastSocket(port);                                                     /*Socket used for Control communications*/
+        this.MCControlSock.joinGroup(MCControlVIP);                                                         /*Joining Control Network */
 
-        sentStack = new Stack<String>();
+        this.commands = new Stack<String>();                                                                /*Stack for saving commands for later execution*/
+        this.commandStackMutex = new Mutex();                                                               /*Mutex for locking commands Stack*/
 
+        this.BackupThreads   = new Vector<Thread>();                                                        /*Vector to save Backup Threads*/
+        this.RecoveryThreads = new Vector<Thread>();                                                        /*Vector to save Recovery Threads*/
+
+        this.sentStack = new Stack<String>();                                                               /*Saves the last command sent to the network*/
+        this.sentStack.push("");                                                                            /*Making funny things since 1995-Malucos do Riso*/
+        this.MenuThread = new ThreadMenu(commandStackMutex,commands);
+        this.MenuThread.run();
     }
-    void activate()throws SocketException{
-        byte[] buff = new String("Hello Everybody").getBytes();
-        byte[] buff2= new byte[1024];
-
-        DatagramPacket packet1 = null;
-        DatagramPacket packet2 = new DatagramPacket(buff2,buff2.length);
-
-        System.out.println("Local Port:"+MCControlSock.getLocalPort());
-        System.out.println("Loopback M:"+MCControlSock.getLoopbackMode());
-        System.out.println("BroadCast :"+MCControlSock.getBroadcast());
-        System.out.println(new String(buff));
-        BufferedReader read = new BufferedReader(new InputStreamReader(System.in));
-        String data = null;
+    void run()throws SocketException{
+        byte[] buff= new byte[1024];                                                                        /*Buffer for control data receiving*/
+        String data;                                                                                        /*String that holds received messages*/
+        DatagramPacket packet = new DatagramPacket(buff,buff.length);                                       /*Packet to send data*/
         try{
-            data=read.readLine();
-            data+='\n';
-            sentStack.push(data);
-            packet1 = new DatagramPacket(data.getBytes(),data.length(),MCControlVIP,2000);
-            MCControlSock.send(packet1);
             do{
-                MCControlSock.receive(packet2);
-                data = new String(packet2.getData());
-               if (data.substring(0,data.lastIndexOf('\n')+1).equals(sentStack.peek())){}
-               else{}
+                //MCControlSock.setSoTimeout(1000);
+                MCControlSock.receive(packet);
+                data = new String(packet.getData(), packet.getOffset(), packet.getLength());
+                if (data.substring(0,data.lastIndexOf('\n')+1).equals(sentStack.peek())){}
+                else{controlThreadHandler(data);}
             }while(true);
         }
         catch(IOException e){
+
         }
-        System.out.println(data);
     }
     void backupThreadLaunch(String fileID){
 
@@ -73,6 +74,13 @@ public class Peer {
     }
     void controlThreadHandler(String message){
      String[] controls = message.split("\\s");
+     System.out.println(Arrays.toString(controls));
+     if     (controls[0].equalsIgnoreCase("STORED")  ){System.out.println("STORED message detected by me! Uarray!");}
+     else if(controls[0].equalsIgnoreCase("GETCHUNK")){System.out.println("GETCHUNK message detected by me! Uarray!");}
+     else if(controls[0].equalsIgnoreCase("DELETE"))  {System.out.println("DELETE message detected by me! Nhe fraquinho!");}
+     else if(controls[0].equalsIgnoreCase("REMOVED")) {System.out.println("REMOVED message detected by marisculino! Guga La");}
+     else {System.out.println("Invalid");}
+
     }
 
 

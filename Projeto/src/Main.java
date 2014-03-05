@@ -9,7 +9,7 @@ public class Main {
         Peer a = null;
         try{
             a=new Peer("225.4.5.6","225.4.5.6","225.4.5.6");
-            a.activate();
+            a.run();
         }
         catch(UnknownHostException exp){System.out.println("Wrong Network Adress");}
         catch(IOException exp){System.out.println("Could Not Create Socket");}
