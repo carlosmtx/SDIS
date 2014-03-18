@@ -2,33 +2,34 @@ import sun.awt.Mutex;
 
 import java.io.IOException;
 import java.net.*;
-import java.util.*;
 
+import java.util.*;
 /**
  * Created by Sr. Lelo da Purificacao(Malucos do Riso desde 1995) on 26-02-2014.
  * Class Peer
  */
 public class Peer {
+    static public String version="1.0";
+    static public int chunkSize=128;                                                                                    /*MaxSize of each chunk to be sent*/
+    InetAddress MCBackupVIP;                                                                                            /*Adress of multicast backUp channel*/
+    InetAddress MCRecoveryVIP;                                                                                          /*Adress of multicast recovery channel*/
+    InetAddress MCControlVIP;                                                                                           /*Adress of multicast control channel*/
 
+    int MCControlPort;                                                                                                  /*Port used for control channel*/
+    int MCRecoveryPort;                                                                                                 /*Port used for recovery channel*/
+    int MCBackupPort;                                                                                                   /*Port used for backup channel*/
 
-    InetAddress MCBackupVIP;
-    InetAddress MCRecoveryVIP;
-    InetAddress MCControlVIP;
+    MulticastSocket MCControlSock;                                                                                      /*Socket for control channel communications*/
+    MulticastSocket MCBackupSock;                                                                                       /*Socket for backup  channel communications*/
 
-    int MCControlPort;
-    int MCRecoveryPort;
-    int MCBackupPort;
+    Hashtable<String,Thread> BackupThreads;                                                                             /*Each position stores a thread for backup*/
+    Hashtable<String,Thread> RecoveryThreads;                                                                           /*Each position stores a thread for recovery*/
+    ThreadMenu     MenuThread;                                                                                          /*Thread to make menu for user*/
 
-    MulticastSocket MCControlSock;
-    MulticastSocket MCBackupSock;
+    Queue<String> sentQueue;                                                                                            /*Queue to store command sent from commandThread */
 
-    Hashtable<String,Thread> BackupThreads;
-    Vector<Thread> RecoveryThreads;
-    ThreadMenu     MenuThread;
-    Queue<String> sentQueue;
-
-    Mutex commandQueueMutex;
-    Mutex backupThreadMutex;
+    Mutex commandQueueMutex;                                                                                            /*regulates access to "commands" queue*/
+    Mutex backupThreadMutex;                                                                                            /**/
 
     Queue<String> commands;
 
@@ -49,11 +50,11 @@ public class Peer {
         this.MCBackupSock.joinGroup(MCControlVIP);
 
         this.commands = new LinkedList<String>();                                                           /*Queue for saving commands for later execution*/
-        this.commandQueueMutex = new Mutex();                                                              /*Mutex for locking commands Queue*/
+        this.commandQueueMutex = new Mutex();                                                               /*Mutex for locking commands Queue*/
         this.backupThreadMutex = new Mutex();
 
-        this.BackupThreads   = new Vector<Thread>();                                                        /*Vector to save Backup Threads*/
-        this.RecoveryThreads = new Vector<Thread>();                                                        /*Vector to save Recovery Threads*/
+        this.BackupThreads   = new Hashtable<String,Thread>();                                              /*Vector to save Backup Threads*/
+        this.RecoveryThreads = new Hashtable<String,Thread>();                                              /*Vector to save Recovery Threads*/
 
         this.sentQueue = new LinkedList<String>();                                                         /*Saves the last command sent to the network*/
         this.sentQueue.add("");                                                                            /*Making funny things since 1995-Malucos do Riso*/
@@ -67,7 +68,6 @@ public class Peer {
         new Thread(MenuThread).start();
         do{
             try{
-
                 MCControlSock.setSoTimeout(100);
                 MCControlSock.receive(packet);
                 data = new String(packet.getData(), packet.getOffset(), packet.getLength());
@@ -80,14 +80,24 @@ public class Peer {
             catch(IOException e){}
         }while(true);
     }
-    void backupThreadLaunch(String fileID){
+    void backupSendThreadLaunch(String fileID){
+
+        ChunkedFile file = null;
+        int repDegree = 3;                                                                      /*****************ALTERAR******************/
         try{
-            BackupThreads.put("",new Thread(new ThreadBackup(MCBackupSock,MCBackupVIP,fileID,backupThreadMutex)));
-            BackupThreads.get("").start();
+            file = new ChunkedFile(fileID,chunkSize,repDegree);
+            BackupThreads.put(file.getHash(), new Thread(new ThreadBackupSend(MCBackupSock, MCBackupVIP, file, backupThreadMutex)));
+            BackupThreads.get(file.getHash()).start();
         }
         catch(SocketException e){}
     }
-    void recoveryThreadLaunch(String fileID){
+    void backupReceiveThreadLaunch(){
+
+    }
+    void recoverySendThreadLaunch(String fileID){
+
+    }
+    void recoveryReceiveThreadLaunch(String fileID){
 
     }
     void controlThreadHandler(String message){
@@ -114,7 +124,7 @@ public class Peer {
             String filename = commands.poll();
             System.out.println("Vou fazer backup do ficheiro " + filename);
 
-            backupThreadLaunch(filename);
+            backupSendThreadLaunch(filename);
         }
         else if(currentCommand.equals("RESTORE")){
             // Gera thread Restore
