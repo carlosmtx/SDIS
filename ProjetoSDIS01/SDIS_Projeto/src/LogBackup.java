@@ -10,6 +10,8 @@ public class LogBackup implements Serializable{
     long noChunks;
     long chunkSize;
     long backupDate;
+    String hashName;
+
     LogBackup(ChunkedFile file){
         this.fileName    =file.getFilename();
         this.lastModified=file.getLastModified();
@@ -17,6 +19,7 @@ public class LogBackup implements Serializable{
         this.chunkSize   =file.getChunkSize();
         this.noChunks    =(long)Math.ceil(this.size/this.chunkSize);
         this.backupDate  =System.currentTimeMillis();
+        this.hashName    =file.getHash();
     }
 
     int compareTo(Object o){
