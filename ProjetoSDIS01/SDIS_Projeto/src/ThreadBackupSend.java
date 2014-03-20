@@ -15,12 +15,14 @@ public class ThreadBackupSend implements Runnable{
     InetAddress    MCBackupAddress;                                                                                     /*Adress of the Mulsticast Backup Channel*/
     ChunkedFile    file;                                                                                                /*The file to be sent over the network*/
     Mutex backupThreadMutex;                                                                                            /*Only one thread can send data at a given time,all ThreadSendBackup share this mutex*/
+
     public int[] chunksStored;                                                                                          /*Each position represents a chunk that was stored in a remote computer*/
-    public ThreadBackupSend(DatagramSocket socket, InetAddress MCAddress, ChunkedFile file, Mutex backupThreadMutex)throws SocketException {
-        this.MCBackupAddress = MCAddress;
-        this.MCBackup = socket;
+
+    public ThreadBackupSend(Peer peer,ChunkedFile file)throws SocketException {
+        this.MCBackupAddress = peer.MCBackupVIP;
+        this.MCBackup = peer.MCBackupSock;
         this.file = file;
-        this.backupThreadMutex = backupThreadMutex;
+        this.backupThreadMutex = peer.backupThreadMutex;
         this.chunksStored = new int[(int)file.getSize()/file.getChunkSize()+1];
     }
     private String getHeader(int i,int repDegree){
@@ -28,9 +30,9 @@ public class ThreadBackupSend implements Runnable{
                         Peer.version        +' '+
                         file.getHash()      +' '+
                         i                   +' '+
-                        repDegree +
-                        '\n'+
-                        '\n';
+                        repDegree           +' '+
+                        '\n'                +' '+
+                        '\n'                +' ';
         return header;
     }
     private void sendPacket(int i,int repDegree,ArrayList fileChunks){
@@ -49,12 +51,12 @@ public class ThreadBackupSend implements Runnable{
         for(int i = 0; i < aux.size(); i++){                                                                        /*Sending all the chunks*/
             sendPacket(i,file.getRepDegree(),aux);
         }
-        try{this.wait(100);}
-        catch(InterruptedException e){}
         for ( int i = 0 ; i < chunksStored.length ; i++){
             if (chunksStored[i] < file.getRepDegree()){
-                sendPacket(i,file.getRepDegree()-chunksStored[i],aux);
+            //    sendPacket(i,file.getRepDegree()-chunksStored[i],aux);
             }
         }
     }
+
+
 }

@@ -31,21 +31,12 @@ public class ChunkedFile {
     }
     public ArrayList<String> chunkFile(){
         try{
-            /* Scanner
-                Scanner sc = new Scanner(new ChunkedFile(filename));
-                String data = "";
-                while(sc.hasNext()){
-                    data += sc.next();
-                }
-             */
             byte[] bytes = new byte[(int)file.length()];
             DataInputStream dataInputStream = new DataInputStream(new BufferedInputStream(new FileInputStream(filename)));
             dataInputStream.readFully(bytes);
             dataInputStream.close();
 
             String data = new String(bytes);
-            //System.out.print(res);
-
 
             int i = 0;
             while(i < data.length()){

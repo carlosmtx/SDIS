@@ -33,9 +33,14 @@ public class ThreadMenu implements Runnable{
     }
     void mainMenu()throws Exception{
         clearConsole();
-        boolean end=false;
         int choice=0;
-        System.out.print("" +
+        System.out.print(""+
+                "\n  ================================= "+
+                "\n||   *CABECINHA PENSADORA* v:" + Peer.version +"   ||"+
+                "\n||   rep.degree=" + Peer.repDegree + " chunkSize= " + Peer.chunkSize +"   ||" +
+                "\n  =================================  "+
+                "\n" +
+
                 "1-File backup\n" +
                 "2-File restore\n" +
                 "3-File deletion\n" +
@@ -71,7 +76,7 @@ public class ThreadMenu implements Runnable{
                     "2-Voltar\n"
             );
             try{choice =read.nextInt();}
-            catch(InputMismatchException exp){System.out.println("Invalid Input");}
+            catch(InputMismatchException exp){read.reset();System.out.println("Invalid Input");}
         }
         while(choice >2 && choice <1);
         switch (choice){
@@ -90,19 +95,28 @@ public class ThreadMenu implements Runnable{
 
     }
     public void settingsMenu(){
-
+        int choice;
+        System.out.print("" +
+                "1-Alterar Grau de Replicacao\n" +
+                "2-Voltar\n"
+        );
+        try{choice =read.nextInt();}
+        catch(InputMismatchException exp){System.out.println("Invalid Input");return;}
+        if(choice == 1){
+            System.out.print("Introduza o grau de replicacao:  ");
+        }
+        try{choice =read.nextInt();}
+        catch(InputMismatchException exp){System.out.println("Invalid Input");return;}
+        Peer.repDegree = choice;
     }
-
     public void backupMenuGetFile(){
         System.out.println("Insira o caminho do ficheiro:");
         read.nextLine();
         String path = read.nextLine();
-
         File f = new File(path);
         if(f.exists() && !f.isDirectory()) {addBackupCommand(path);}
         else{System.out.println("Path Invalido:Ficheiro nao existe ou e um directorio");}
     }
-
     private void addBackupCommand(String path){
         commandStackMutex.lock();
         commands.add("BACKUP");
@@ -111,13 +125,13 @@ public class ThreadMenu implements Runnable{
         System.out.println(Arrays.toString(commands.toArray()));
     }
     public void run(){
-        System.out.println("Called Run(Thread Menu)");
         try{
             while(true){
                 mainMenu();
             }
         }
         catch(Exception e){
+            Peer.endProgram=true;
             System.out.println("Exiting...");
         }
     }
