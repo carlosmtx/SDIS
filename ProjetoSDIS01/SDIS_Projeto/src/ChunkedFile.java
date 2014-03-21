@@ -37,7 +37,7 @@ public class ChunkedFile {
             dataInputStream.close();
 
             String data = new String(bytes);
-
+            data.replace('\r',' ');
             int i = 0;
             while(i < data.length()){
                 if( i + chunkSize > data.length()){ // Ultimo chunk

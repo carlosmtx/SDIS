@@ -29,6 +29,7 @@ public class Peer {
 
     Hashtable<String,ThreadBackupSend> BackupThreads;                                                                   /*Each position stores a thread for backup*/
     Hashtable<String,ThreadRestoreSend> RecoveryThreads;                                                                /*Each position stores a thread for recovery*/
+    Hashtable<String,ThreadRestoreReceive> RecoveryReceiveThreads;
     Hashtable<String,Integer> StoreCounter;                                                                             /*Each position stores the number of STORED received for a "String" file_No*/
 
     Mutex storedCounterMutex;
@@ -165,13 +166,9 @@ public class Peer {
         else if(controls[0].equalsIgnoreCase("GETCHUNK")){
             String[] ctrls = message.split(" ", 5);
 
-            System.out.println("DETETEI GET CHUNK");
-
-            //System.out.println(Arrays.toString(ctrls));
-
+            //System.out.println("DETETEI GET CHUNK");
             String id = ctrls[2];
             String chunkNo = ctrls[3];
-
             receivedGetChunkMessagesHandler(id, chunkNo);
         }
         else if(controls[0].equalsIgnoreCase("DELETE"))  {System.out.println("DELETE message detected by me! Nhe fraquinho!");}
@@ -191,13 +188,17 @@ public class Peer {
             recoveryThreadMutex.unlock();
 
             new Thread(RecoveryThreads.get(filename)).start();
+
+            // Abre thread que lê entradas no canal Restore (chunks recebidos)
+
+
         }
         catch(IOException e){
 
         }
     }
-    void recoveryReceiveThreadLaunch(String fileID){
-        /**/
+    void recoveryReceiveThreadLaunch(String fileid){
+        new Thread(new ThreadRestoreReceive(this, fileid)).start();
     }
 
     void receivedStoreMessagesHandler(String fileID, String chunkNo){
@@ -224,37 +225,21 @@ public class Peer {
 
     void receivedGetChunkMessagesHandler(String fileID, String chunkNo){
         /*
-        if(RecoveryThreads.get(fileID) != null){
-            System.out.println("Recebi GetChunk vindo de mim");
+            Verificicacao se pedido vem do proprio pc
+         */
+
+        String path = "./BackupFiles/"+ fileID+"_"+chunkNo+".mdr";
+        File chunk = new File(path);
+
+        if(!chunk.exists()){
+            //System.out.println("Nao tem o chunk pedido");
         }
         else{
-            */
+            // Enviar chunk pelo MCRestore - Criar thread para o chunk atual
+            recoverySendThreadLaunch(fileID, chunkNo, path);
 
-        System.out.println("GetChunk Handler");
-            for(int i = 0; i < backupLog.size(); i++){
-                if(backupLog.get(i).hashName.equals(fileID)){
-                    System.out.println("Tenho ficheiro que me pediram");
-
-                    //Saber se tem o chunk pedido.
-                    String path = fileID+"_"+chunkNo+".mdr";
-                    File chunk = new File(path);
-
-                    if(!chunk.exists()){
-                        System.out.println("Nao tem o chunk pedido");
-
-                        break;
-                    }
-                    else{
-                        // Enviar chunk pelo MCRestore - Criar thread para o chunk atual
-                        recoverySendThreadLaunch(fileID, chunkNo, path);
-
-                    }
-                    break;
-                }
-            }
-        //}
+        }
     }
-
 
     // Comandos dados pelo próprio processo (ThreadMenu, ThreadBackupSend, etc) a si mesmo
     void checkForCommands(){
@@ -264,12 +249,18 @@ public class Peer {
             return;
         }
         String currentCommand = commands.poll();
+        //System.out.println("CURRENT COMMAND: " + currentCommand);
         if(currentCommand.equals("BACKUP")){
             String filename = commands.poll();
             backupSendThreadLaunch(filename);
         }
         else if(currentCommand.equals("RESTORE")){
             // Nao vai servir pa nada :D:D:D:D - Bom e barato só no barata :D:D:D:D
+            // AFINAL VAI :D:D:D:
+            System.out.println("A Escutar canal de Restore...");
+            String fileid = commands.poll();
+            recoveryReceiveThreadLaunch(fileid);
+
         }
         else if(currentCommand.equals("STORED")){
 
@@ -285,7 +276,7 @@ public class Peer {
             String chunkNo = commands.poll();
 
             String data = "GETCHUNK " + version + " " + fileID + " " + chunkNo + " \n \n";
-            System.out.println("Enviei : " + data);
+            //System.out.println("Enviei : " + data);
             DatagramPacket packet = new DatagramPacket(data.getBytes(),data.length(),MCControlVIP,MCControlPort);
             try{
                 MCControlSock.send(packet);
@@ -295,5 +286,4 @@ public class Peer {
         }
         commandQueueMutex.unlock();
     }
-
 }

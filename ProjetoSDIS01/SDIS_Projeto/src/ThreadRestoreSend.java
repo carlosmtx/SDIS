@@ -39,8 +39,6 @@ public class ThreadRestoreSend implements Runnable{
     }
     public void run(){
         dataToSend = getInfoFromFile(pathChunk);
-        System.out.println(dataToSend);
-
         sendPacket(dataToSend);
     }
 
@@ -74,8 +72,8 @@ public class ThreadRestoreSend implements Runnable{
 
             data = new String(bytes);
 
-            System.out.println(data);
-
+            //System.out.println("****************** Data Lida do Ficheiro ******************\n" + data + "\n********************************************\n");
+            System.out.println("Enviou Packet com ChunkNo: " + chunkNo);
         }catch(IOException e){
             e.printStackTrace();
         }

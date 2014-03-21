@@ -86,7 +86,7 @@ public class ThreadBackupReceive implements Runnable {
     }
     public void run(){
         while(!Peer.endProgram){
-            byte[] buff = new byte[128];
+            byte[] buff = new byte[1024];
             DatagramPacket packet = new DatagramPacket(buff,buff.length);
             try{
                 MCBackup.setSoTimeout(50);

@@ -213,10 +213,7 @@ public class ThreadMenu implements Runnable{
         //System.out.println(Arrays.toString(commands.toArray()));
     }
     private void addRestoreCommand(String filename){
-
         String fileid = filename;
-
-        String command = "GETCHUNK";
 
         LogBackup aux = null;
         for(int i = 0; i < backupLog.size(); i++){
@@ -225,9 +222,14 @@ public class ThreadMenu implements Runnable{
             }
         }
 
+        commandQueueMutex.lock();
+        commands.add("RESTORE"); // para abrir socket de rececao
+        commands.add(fileid);
+        commandQueueMutex.unlock();
+
         for(int i = 0; i < aux.noChunks; i++){
             commandQueueMutex.lock();
-            commands.add(command);
+            commands.add("GETCHUNK");
             commands.add(fileid);
             commands.add(""+i);
             commandQueueMutex.unlock();
