@@ -9,6 +9,7 @@ public class Main {
         System.setProperty("file.encoding","UTF-8");
         Peer a = null;
         try{
+            new Thread(new ThreadDelete("")).start();
             a=new Peer("225.4.5.6",2000,"225.4.5.6",2001,"225.4.5.6",2002);
             a.run();
         }

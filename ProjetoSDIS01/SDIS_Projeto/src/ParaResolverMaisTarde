@@ -1,3 +1,0 @@
-- Quando uma ThreadBackupSend envia qq coisa, a ThreadBackupReceive vai receber o que foi enviado.
-    -Se nao for feito nada, é feito um backup do ficheiro no proprio computador
-    -

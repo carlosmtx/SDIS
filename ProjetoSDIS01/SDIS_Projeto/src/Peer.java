@@ -89,7 +89,7 @@ public class Peer {
         try{
 
             ObjectInputStream in = new ObjectInputStream(
-                    new BufferedInputStream(new FileInputStream("BackupLogs.mna")));
+            new BufferedInputStream(new FileInputStream("BackupLogs.mna")));
 
             backupLog = (Vector<LogBackup>) in.readObject();
 
@@ -126,7 +126,7 @@ public class Peer {
             catch(IOException e){}
             checkForCommands();
         }while(!endProgram);
-        /*
+
         try{
 
             OutputStream file  = new FileOutputStream("BackupLogs.mna");
@@ -137,72 +137,10 @@ public class Peer {
 
         }
         catch(IOException e){}
-        */
+
 
     }
 
-    void backupSendThreadLaunch(String fileID){
-        ChunkedFile file = null;
-        try{
-            file = new ChunkedFile(fileID,chunkSize,repDegree);
-            backupLog.add(new LogBackup(file));
-            backupThreadMutex.lock();
-            BackupThreads.put(file.getHash(), new ThreadBackupSend(this, file));
-            backupThreadMutex.unlock();
-            new Thread(BackupThreads.get(file.getHash())).start();
-        }
-        catch(SocketException e){}
-    }
-    void recoverySendThreadLaunch(String filename, String chunkNo, String path){
-        try{
-            //  Mutex sobre hash das threads recovery
-            recoveryThreadMutex.lock();
-            RecoveryThreads.put(filename, new ThreadRestoreSend(this, filename, chunkNo, path) );
-            recoveryThreadMutex.unlock();
-
-            new Thread(RecoveryThreads.get(filename)).start();
-
-            // Abre thread que lê entradas no canal Restore (chunks recebidos)
-
-
-        }
-        catch(IOException e){
-
-        }
-    }
-    void recoveryReceiveThreadLaunch(String fileid){
-        new Thread(new ThreadRestoreReceive(this, fileid)).start();
-    }
-
-    // Reencaminhador de Pacotes recebidos no MC Control
-    void controlThreadHandler(String message){
-        String[] controls = message.split(" ",2);
-
-        if     (controls[0].equalsIgnoreCase("STORED")  ){
-            String[] ctrls = message.split(" ",5);
-            String id = ctrls[2];
-            String chunkNo = ctrls[3];
-            receivedStoreMessagesHandler(id, chunkNo);
-        }
-        else if(controls[0].equalsIgnoreCase("GETCHUNK")){
-            String[] ctrls = message.split(" ", 5);
-
-            //System.out.println("DETETEI GET CHUNK");
-            String id = ctrls[2];
-            String chunkNo = ctrls[3];
-            receivedGetChunkMessagesHandler(id, chunkNo);
-        }
-        else if(controls[0].equalsIgnoreCase("DELETE"))  {
-            String[] ctrls = message.split(" ", 3);
-            String id = ctrls[1];
-
-            receivedDeleteMessageHandler(id);
-        }
-        else if(controls[0].equalsIgnoreCase("REMOVED")) {System.out.println("REMOVED message detected by marisculino! Guga La");}
-        else {System.out.println("Invalid");}
-
-    }
-    // Comandos dados pelo próprio processo (ThreadMenu, ThreadBackupSend, etc) a si mesmo
     void checkForCommands(){
         commandQueueMutex.lock();
         if(commands.peek() == null || commands.isEmpty()){
@@ -235,28 +173,75 @@ public class Peer {
         else if(currentCommand.equals("GETCHUNK")){
             String fileID = commands.poll();
             String chunkNo = commands.poll();
-            String data = "GETCHUNK " + version + " " + fileID + " " + chunkNo + " \n \n";
 
+            String data = "GETCHUNK " + version + " " + fileID + " " + chunkNo + " \n \n";
+            //System.out.println("Enviei : " + data);
             DatagramPacket packet = new DatagramPacket(data.getBytes(),data.length(),MCControlVIP,MCControlPort);
             try{
                 MCControlSock.send(packet);
+                //System.out.println("Enviei no MCControl: '" + data + "'");
             }
             catch(IOException e){ }
         }
         else if(currentCommand.equals("DELETE")){
             String fileID = commands.poll();
-            String data = "DELETE" + " " + fileID + " \n \n";
-
+            String data = "DELETE "+ fileID +" " + '\n'+" " + '\n';
             DatagramPacket packet = new DatagramPacket(data.getBytes(),data.length(),MCControlVIP,MCControlPort);
             try{
                 MCControlSock.send(packet);
+                System.out.println("Enviei no MCControl: '" + data + "'");
             }
             catch(IOException e){ }
         }
         commandQueueMutex.unlock();
     }
 
-    // Handlers das Mensagens recebidas no MC Control
+
+
+    void backupSendThreadLaunch(String fileID){
+        ChunkedFile file = null;
+        try{
+            file = new ChunkedFile(fileID,chunkSize,repDegree);
+            backupLog.add(new LogBackup(file));
+            backupThreadMutex.lock();
+            BackupThreads.put(file.getHash(), new ThreadBackupSend(this, file));
+            backupThreadMutex.unlock();
+            new Thread(BackupThreads.get(file.getHash())).start();
+        }
+        catch(SocketException e){}
+    }
+
+
+    void controlThreadHandler(String message){
+        if (message == null){return;}
+        String[] controls = message.split(" ",2);
+
+        if     (controls[0].equalsIgnoreCase("STORED")  ){
+            String[] ctrls = message.split(" ",5);
+            String id = ctrls[2];
+            String chunkNo = ctrls[3];
+            receivedStoreMessagesHandler(id, chunkNo);
+        }
+        else if(controls[0].equalsIgnoreCase("GETCHUNK")){
+            String[] ctrls = message.split(" ", 5);
+
+            //System.out.println("DETETEI GET CHUNK");
+            String id = ctrls[2];
+            String chunkNo = ctrls[3];
+            receivedGetChunkMessagesHandler(id, chunkNo);
+        }
+        else if(controls[0].equalsIgnoreCase("DELETE"))  {deleteMessageHandler(controls[1]);}
+        else if(controls[0].equalsIgnoreCase("REMOVED")) {System.out.println("REMOVED message detected by marisculino! Guga La");}
+        else {System.out.println("Invalid");}
+
+    }
+
+    void deleteMessageHandler(String cmd){
+        if (cmd == null){return;}
+        String[] msg = cmd.split(" ",2);
+        System.out.println(Arrays.toString(msg));
+        deleteThreadLaunch(msg[0]);
+    }
     void receivedStoreMessagesHandler(String fileID, String chunkNo){
         if(BackupThreads.get(fileID) != null){
             try{
@@ -295,8 +280,30 @@ public class Peer {
 
         }
     }
-    void receivedDeleteMessageHandler(String fileID){
 
+    void deleteThreadLaunch(String fileID){
+
+        new Thread(new ThreadDelete(fileID)).start();
+    }
+    void recoverySendThreadLaunch(String filename, String chunkNo, String path){
+        try{
+            //  Mutex sobre hash das threads recovery
+            recoveryThreadMutex.lock();
+            RecoveryThreads.put(filename, new ThreadRestoreSend(this, filename, chunkNo, path) );
+            recoveryThreadMutex.unlock();
+
+            new Thread(RecoveryThreads.get(filename)).start();
+
+            // Abre thread que lê entradas no canal Restore (chunks recebidos)
+
+
+        }
+        catch(IOException e){
+
+        }
+    }
+    void recoveryReceiveThreadLaunch(String fileid){
+        new Thread(new ThreadRestoreReceive(this, fileid)).start();
     }
 
 }

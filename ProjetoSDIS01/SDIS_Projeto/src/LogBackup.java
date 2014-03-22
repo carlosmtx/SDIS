@@ -21,7 +21,6 @@ public class LogBackup implements Serializable{
         this.backupDate  =System.currentTimeMillis();
         this.hashName    =file.getHash();
     }
-
     int compareTo(Object o){
         LogBackup a = (LogBackup)o;
         if     (this.backupDate < a.backupDate){return -1;}

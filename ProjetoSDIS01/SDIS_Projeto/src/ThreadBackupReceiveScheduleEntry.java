@@ -32,7 +32,12 @@ public class ThreadBackupReceiveScheduleEntry {
             if (!dir.exists()) {
                 dir.mkdir();
             }
-            File file = new File("BackupFiles/"+fileID+"_"+no+".mdr");
+            dir = new File("BackupFiles/"+fileID);
+            if (!dir.exists()) {
+                dir.mkdir();
+            }
+
+            File file = new File("BackupFiles/"+fileID+"/"+no+".mdr");
             if (!file.exists()) {
                 file.createNewFile();
             }

@@ -26,8 +26,8 @@ public class ThreadMenu implements Runnable{
         egg.add("Vai la vai, ate a barraca abana");
         egg.add("Oh Costa, a vida Costa         ");
         egg.add("Quimico, Natural ou Assim-Assim");
-        egg.add("Directamente da Tailandia      ");
-        egg.add("Isto e que vai aqui uma açorda ");
+        egg.add("Directamente da Tailândia      ");
+        egg.add("Isto é que vai aqui uma açorda ");
         egg.add("Bom e barato, só no Barata     ");
 
     }
@@ -68,7 +68,7 @@ public class ThreadMenu implements Runnable{
                 "1-Backup de Ficheiro\n" +
                 "2-Recuperar Ficheiro\n" +
                 "3-Apagar Ficheiro\n" +
-                "4-Definicoes\n" +
+                "4-Definições\n" +
                 "5-Sair\n");
         try{choice =read.nextInt();}
         catch(InputMismatchException exp){System.out.println("Invalid Input");}
@@ -172,7 +172,6 @@ public class ThreadMenu implements Runnable{
 
         Peer.repDegree = choice;
     }
-
     public void backupMenuGetFile(){
         System.out.println("Insira o caminho do ficheiro:");
         read.nextLine();
@@ -199,26 +198,13 @@ public class ThreadMenu implements Runnable{
             System.out.println("Ficheiro nao encontrado.");
         }
     }
+
     public void deleteMenuGetFile(){
         System.out.println("Insira o nome do ficheiro a apagar:");
         read.nextLine();
         String fileName = read.nextLine();
-        boolean fileFound = false;
-
-        for(int i = 0; i < backupLog.size(); i++){
-            if(backupLog.get(i).fileName.equals(fileName)){
-                fileFound = true;
-                addDeleteCommand(backupLog.get(i).hashName);
-                break;
-            }
-        }
-
-        if(!fileFound){
-            System.out.println("Ficheiro nao encontrado.");
-        }
-
+        addDeleteCommand(fileName);
     }
-
     private void addBackupCommand(String path){
         commandQueueMutex.lock();
         commands.add("BACKUP");
@@ -249,10 +235,10 @@ public class ThreadMenu implements Runnable{
             commandQueueMutex.unlock();
         }
     }
-    private void addDeleteCommand(String fileid){
+    private void addDeleteCommand(String filename){
         commandQueueMutex.lock();
         commands.add("DELETE");
-        commands.add(fileid);
+        commands.add(filename);
         commandQueueMutex.unlock();
         //System.out.println(Arrays.toString(commands.toArray()));
     }
