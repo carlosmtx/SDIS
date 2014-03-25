@@ -68,12 +68,19 @@ public class ThreadBackupReceive implements Runnable {
         }
     }
     public void packetHandler(DatagramPacket packet){
+        // RECEBE PUTCHUNK
         String rec = new String(packet.getData());
         String[] receivedMessage = rec.split(" ",8);
+
         String fileId  = receivedMessage[2];
         String chunkNo = receivedMessage[3];
         String repDeg  = receivedMessage[4];
         String content = receivedMessage[7];
+
+        System.out.println("Content recebido\n**************\n" + content + "\n**************");
+
+
+
         hashTableBackupMutex.lock();
         if (BackupThreads.get(fileId)!= null){
             hashTableBackupMutex.unlock();
@@ -86,8 +93,10 @@ public class ThreadBackupReceive implements Runnable {
     }
     public void run(){
         while(!Peer.endProgram){
-            byte[] buff = new byte[1024];
+            // PUT CHUNKS
+            byte[] buff = new byte[214];
             DatagramPacket packet = new DatagramPacket(buff,buff.length);
+
             try{
                 MCBackup.setSoTimeout(50);
                 MCBackup.receive(packet);

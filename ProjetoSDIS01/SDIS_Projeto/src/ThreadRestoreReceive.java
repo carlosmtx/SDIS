@@ -1,5 +1,8 @@
 import sun.awt.Mutex;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -7,6 +10,7 @@ import java.net.InetAddress;
 import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.regex.Pattern;
 
 /**
  * Created by Leonel da Purificacao on 21-03-1995.
@@ -24,6 +28,7 @@ public class ThreadRestoreReceive implements Runnable {
 
     String fileid;
     long numberOfChunks;
+    String fileName;
 
     ThreadRestoreReceive(Peer p, String fileid){
         this.MCRestoreSock = p.MCRecoverySock;
@@ -35,18 +40,26 @@ public class ThreadRestoreReceive implements Runnable {
         for(int i = 0; i < p.backupLog.size(); i++){
             if(p.backupLog.get(i).hashName == fileid){
                 this.numberOfChunks = p.backupLog.get(i).noChunks;
+                this.fileName = p.backupLog.get(i).fileName;
             }
         }
 
         positionCheck = new ArrayList<Boolean>();
         chunksStored = new String[(int)numberOfChunks];
 
+
+        this.fileName.replace("/", Pattern.quote(File.separator));
+        String[] parts = this.fileName.split(Pattern.quote(File.separator));
+        String name = parts[parts.length-1];
+        //this.fileName = "\\RestoredFiles\\"+name;
+        this.fileName = name;
+
     }
 
     public void run(){
-
+        System.out.println("Entrou");
         while(!Peer.endProgram){
-            byte[] buff = new byte[packetReceivedSize];
+            byte[] buff = new byte[209];
             DatagramPacket packet = new DatagramPacket(buff,buff.length);
             try{
                 MCRestoreSock.setSoTimeout(50);
@@ -67,16 +80,36 @@ public class ThreadRestoreReceive implements Runnable {
         System.out.println("Terminei escuta - passar po ficheiro");
         System.out.println(Arrays.toString(chunksStored));
 
+        File file = new File(fileName);
+        //System.out.println("Ficheiro vai-se chamar " +fileName);
 
+        // if file doesnt exists, then create it
+        try{
+            if (!file.exists()) {
+                file.createNewFile();
+            }
 
+            FileWriter fw = new FileWriter(file.getAbsoluteFile());
+            BufferedWriter bw = new BufferedWriter(fw);
+            for(int i = 0; i < chunksStored.length; i++){
+                bw.write(chunksStored[i]);
+                //System.out.println("Passei po ficheiro " + i);
+            }
+            bw.close();
+            System.out.println("Ficheiro Restaurado com sucesso: " + this.fileName);
+
+        }
+        catch(IOException e){
+
+        }
     }
 
     boolean packetHandler(DatagramPacket packet){
         String rec = new String(packet.getData());
-        String[] receivedMessage = rec.split(" ",5);
+        String[] receivedMessage = rec.split("\\s",7);
         String receivedID  = receivedMessage[2];
         String chunkNo = receivedMessage[3];
-        String content = receivedMessage[4];
+        String content = receivedMessage[6];
 
         System.out.println("Recebi chunk: " + chunkNo);
         if(receivedID.equals(this.fileid)){

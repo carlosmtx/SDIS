@@ -37,7 +37,15 @@ public class ThreadBackupSend implements Runnable{
     }
     private void sendPacket(int i,int repDegree,ArrayList fileChunks){
         String data = getHeader(i,repDegree)+ fileChunks.get(i);
+
+        // Problema nao e aqui. Envia direito.
+        System.out.println("Partido Localmente\n************************\n" + data + "\n" +
+                "************************\nSize: " + data.length() + "\n" +
+                "************************");
+        //Peer.trafulhice = data.length();
+
         DatagramPacket packet = new DatagramPacket(data.getBytes(),data.length(),MCBackupAddress,2002);
+
 
         backupThreadMutex.lock();                                                                                   /*Trying to lock resource*/
         try{

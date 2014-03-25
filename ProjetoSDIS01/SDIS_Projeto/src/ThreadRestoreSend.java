@@ -52,8 +52,9 @@ public class ThreadRestoreSend implements Runnable{
                 '\n'                +' '+
                 dataToSend;
 
+        //System.out.println("A enviar: \n****************\n'" + data + "\n****************");
         DatagramPacket packet = new DatagramPacket(data.getBytes(),data.length(),MCRestoreAddress,MCRestorePort);
-
+        System.out.println("Restore enviou packet com tamanhao: " + data.getBytes().length);
         MCRestoreSockMutex.lock();                                                                                   /*Trying to lock resource*/
         try{
             MCRestore.send(packet);                                                                                  /*Sending data*/

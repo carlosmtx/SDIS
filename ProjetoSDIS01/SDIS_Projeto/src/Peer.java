@@ -11,6 +11,9 @@ import java.util.*;
 public class Peer {
     static public String version="1.0";
     static public int chunkSize=128;                                                  /*MaxSize of each chunk to be sent*/
+
+    static public int trafulhice;
+
     static public  int repDegree=3;
     static public boolean endProgram=false;
     InetAddress MCBackupVIP;                                                          /*Adress of multicast backUp channel*/
@@ -100,6 +103,9 @@ public class Peer {
             e.printStackTrace();
         }
 
+        this.logMutex = new Mutex();
+        this.logs = new Vector<Log>();
+
     }
     void run()throws SocketException{
         this.MenuThread = new ThreadMenu(this);
@@ -127,7 +133,9 @@ public class Peer {
             checkForCommands();                                                                             /*Better check if some thread needs some help*/
         }while(!endProgram);                                                                                /*Should we end the program??*/
 
-        try{                                                                                                /*Saving everything ()*/
+                                                                                                            /*Saving everything ()*/
+        /*
+        try{
 
             OutputStream file  = new FileOutputStream("BackupLogs.mna");
             OutputStream buffer= new BufferedOutputStream(file);
@@ -135,9 +143,10 @@ public class Peer {
             output.writeObject(backupLog);
             output.close();
 
+
         }
         catch(IOException e){}
-
+        */
 
     }
 
@@ -154,12 +163,10 @@ public class Peer {
             backupSendThreadLaunch(filename);                                                           /*Better send someone. John... plz summon a backupThread*/
         }
         else if(currentCommand.equals("RESTORE")){                                                      /*The user!!! OH My God he needs to restore a file*/
-            System.out.println("A Escutar canal de Restore...");
             String fileid = commands.poll();                                                             /*What file does he want? Oh...Look...A fileID.  JOHN!!*/
             recoveryReceiveThreadLaunch(fileid);                                                         /*John plz summon a restore thread*/
             // Nao vai servir pa nada :D:D:D:D - Bom e barato só no barata :D:D:D:D
             // AFINAL VAI :D:D:D
-
         }
         else if(currentCommand.equals("STORED")){                                                       /*William someone needs us to inform that we stored something. This is great*/
 
@@ -281,7 +288,7 @@ public class Peer {
             Verificicacao se pedido vem do proprio pc
          */
 
-        String path = "./BackupFiles/"+ fileID+"_"+chunkNo+".mdr";
+        String path = "./BackupFiles/"+ fileID+ "/"+ chunkNo + ".mdr";
         File chunk = new File(path);
 
         if(!chunk.exists()){
