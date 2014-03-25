@@ -10,41 +10,44 @@ import java.util.*;
  */
 public class Peer {
     static public String version="1.0";
-    static public int chunkSize=128;                                                                                    /*MaxSize of each chunk to be sent*/
+    static public int chunkSize=128;                                                  /*MaxSize of each chunk to be sent*/
     static public  int repDegree=3;
     static public boolean endProgram=false;
-    InetAddress MCBackupVIP;                                                                                            /*Adress of multicast backUp channel*/
-    InetAddress MCRecoveryVIP;                                                                                          /*Adress of multicast recovery channel*/
-    InetAddress MCControlVIP;                                                                                           /*Adress of multicast control channel*/
+    InetAddress MCBackupVIP;                                                          /*Adress of multicast backUp channel*/
+    InetAddress MCRecoveryVIP;                                                        /*Adress of multicast recovery channel*/
+    InetAddress MCControlVIP;                                                         /*Adress of multicast control channel*/
 
-    int MCControlPort;                                                                                                  /*Port used for control channel*/
-    int MCRecoveryPort;                                                                                                 /*Port used for recovery channel*/
-    int MCBackupPort;                                                                                                   /*Port used for backup channel*/
+    int MCControlPort;                                                                /*Port used for control channel*/
+    int MCRecoveryPort;                                                               /*Port used for recovery channel*/
+    int MCBackupPort;                                                                 /*Port used for backup channel*/
 
-    MulticastSocket MCControlSock;                                                                                      /*Socket for control channel communications*/
+    MulticastSocket MCControlSock;                                                    /*Socket for control channel communications*/
     MulticastSocket MCRecoverySock;
-    MulticastSocket MCBackupSock;                                                                                       /*Socket for backup  channel communications*/
+    MulticastSocket MCBackupSock;                                                     /*Socket for backup  channel communications*/
 
     Mutex MCRestoreSockMutex;
 
-    Hashtable<String,ThreadBackupSend> BackupThreads;                                                                   /*Each position stores a thread for backup*/
-    Hashtable<String,ThreadRestoreSend> RecoveryThreads;                                                                /*Each position stores a thread for recovery*/
+    Hashtable<String,ThreadBackupSend> BackupThreads;                                 /*Each position stores a thread for backup.*/
+    Hashtable<String,ThreadRestoreSend> RecoveryThreads;                              /*Each position stores a thread for recovery*/
     Hashtable<String,ThreadRestoreReceive> RecoveryReceiveThreads;
-    Hashtable<String,Integer> StoreCounter;                                                                             /*Each position stores the number of STORED received for a "String" file_No*/
+    Hashtable<String,Integer> StoreCounter;                                           /*Each position stores the number of STORED received for a "String" file_No*/
 
     Mutex storedCounterMutex;
-    Mutex backupThreadMutex;                                                                                            /*regulates access to ""*/
+    Mutex backupThreadMutex;                                                          /*Regulates access to */
     Mutex recoveryThreadMutex;
-    Mutex commandQueueMutex;                                                                                            /*regulates access to "commands" queue*/
+    Mutex commandQueueMutex;                                                          /*Regulates access to "commands" queue*/
 
-    ThreadMenu     MenuThread;                                                                                          /*Thread to make menu for user*/
+    ThreadMenu     MenuThread;                                                        /*Thread to make menu for user*/
     ThreadBackupReceive BackupReceive;
-    Queue<String> sentQueue;                                                                                            /*Queue to store command sent from commandThread */
+    Queue<String> sentQueue;                                                          /*Queue to store command sent from commandThread */
 
 
-    Queue<String> commands;
+    Queue<String> commands;                                                           /*Queue that stores all the commands from other threads*/
 
-    Vector<LogBackup> backupLog;
+    Vector<LogBackup> backupLog;                                                      /*Keeps a registry of the backup logs*/
+
+    Vector<Log> logs;                                                                 /*Keeps a record of all the messages received and actions taken by the program*/
+    Mutex logMutex;                                                                   /*Regulates the access to logs*/
 
     Peer(String MCControlIP,int MCControlPort,String MCRecoveryIP,int MCRecoveryPort,String MCBackupIP,int MCBackupPort)throws UnknownHostException,IOException{
 
@@ -61,13 +64,13 @@ public class Peer {
         this.MCControlSock = new MulticastSocket(MCControlPort);                                            /*Socket used for Control communications*/
         this.MCControlSock.joinGroup(MCControlVIP);                                                         /*Joining Control Network */
 
-        this.MCBackupSock  = new MulticastSocket(MCBackupPort);
-        this.MCBackupSock.joinGroup(MCBackupVIP);
+        this.MCBackupSock  = new MulticastSocket(MCBackupPort);                                             /*Socket for backup communications*/
+        this.MCBackupSock.joinGroup(MCBackupVIP);                                                           /*Joining the multicast group*/
 
-        this.MCRecoverySock  = new MulticastSocket(MCRecoveryPort);
-        this.MCRecoverySock.joinGroup(MCRecoveryVIP);
+        this.MCRecoverySock  = new MulticastSocket(MCRecoveryPort);                                         /*Multicast Recovery socket */
+        this.MCRecoverySock.joinGroup(MCRecoveryVIP);                                                       /*Joining recovery multicast group*/
 
-        this.MCRestoreSockMutex = new Mutex();
+        this.MCRestoreSockMutex = new Mutex();                                                              /*Initializing socket for restore socket access*/
 
         this.commands = new LinkedList<String>();                                                           /*Queue for saving commands for later execution*/
         this.commandQueueMutex = new Mutex();                                                               /*Mutex for locking commands Queue*/
@@ -78,7 +81,7 @@ public class Peer {
 
         this.storedCounterMutex = new Mutex();                                                              /*Mutex to regulate access to StoredCounterHash♀*/
 
-        this.RecoveryThreads = new Hashtable<String,ThreadRestoreSend>();                                       /*Vector to save Recovery Threads♀*/
+        this.RecoveryThreads = new Hashtable<String,ThreadRestoreSend>();                                    /*Vector to save Recovery Threads♀*/
         this.recoveryThreadMutex = new Mutex();
 
         this.sentQueue = new LinkedList<String>();                                                          /*Saves the last command sent to the network♀*/
@@ -86,14 +89,11 @@ public class Peer {
 
         this.backupLog = new Vector<LogBackup>();
 
-        try{
+        try{                                                                                                /*Importing logs */
 
             ObjectInputStream in = new ObjectInputStream(
             new BufferedInputStream(new FileInputStream("BackupLogs.mna")));
-
             backupLog = (Vector<LogBackup>) in.readObject();
-
-
         }
         catch(IOException e){}
         catch(ClassNotFoundException e){
@@ -114,20 +114,20 @@ public class Peer {
 
         do{
             try{
-                MCControlSock.setSoTimeout(100);
-                MCControlSock.receive(packet);
-                data = new String(packet.getData(), packet.getOffset(), packet.getLength());
+                MCControlSock.setSoTimeout(100);                                                            /*Every 100ms read is unblocked*/
+                MCControlSock.receive(packet);                                                              /*Blocking and waiting for packets*/
+                data = new String(packet.getData(), packet.getOffset(), packet.getLength());                /*handling the packet*/
                 if (data.substring(0,data.lastIndexOf('\n')+1).equals(sentQueue.peek())){}
                 else{
-                    controlThreadHandler(data);
+                    controlThreadHandler(data,packet);                                                      /*Interpretation of the packet is made by control...handler */
                 }
             }
-            catch(SocketTimeoutException e){}
+            catch(SocketTimeoutException e){}                                                               /*A timeout occurred.It's ok...you may continue running ;)*/
             catch(IOException e){}
-            checkForCommands();
-        }while(!endProgram);
+            checkForCommands();                                                                             /*Better check if some thread needs some help*/
+        }while(!endProgram);                                                                                /*Should we end the program??*/
 
-        try{
+        try{                                                                                                /*Saving everything ()*/
 
             OutputStream file  = new FileOutputStream("BackupLogs.mna");
             OutputStream buffer= new BufferedOutputStream(file);
@@ -141,49 +141,48 @@ public class Peer {
 
     }
 
-    void checkForCommands(){
-        commandQueueMutex.lock();
-        if(commands.peek() == null || commands.isEmpty()){
-            commandQueueMutex.unlock();
+    void checkForCommands(){                                                                            /*Checks if any thread needs something to be sent*/
+        commandQueueMutex.lock();                                                                       /*Locking the queue, we need exclusive access */
+        if(commands.peek() == null || commands.isEmpty()){                                              /*There is nothing to do.*/
+            commandQueueMutex.unlock();                                                                 /*Clean and leave*/
             return;
         }
-        String currentCommand = commands.poll();
-        //System.out.println("CURRENT COMMAND: " + currentCommand);
-        if(currentCommand.equals("BACKUP")){
-            String filename = commands.poll();
-            backupSendThreadLaunch(filename);
+        String currentCommand = commands.poll();                                                        /*Let's see the first command*/
+
+        if(currentCommand.equals("BACKUP")){                                                            /*The user needs our help to backup a file(thanks menu thread for the warning)*/
+            String filename = commands.poll();                                                          /*The user needs to backup the file:fileName*/
+            backupSendThreadLaunch(filename);                                                           /*Better send someone. John... plz summon a backupThread*/
         }
-        else if(currentCommand.equals("RESTORE")){
-            // Nao vai servir pa nada :D:D:D:D - Bom e barato só no barata :D:D:D:D
-            // AFINAL VAI :D:D:D:
+        else if(currentCommand.equals("RESTORE")){                                                      /*The user!!! OH My God he needs to restore a file*/
             System.out.println("A Escutar canal de Restore...");
-            String fileid = commands.poll();
-            recoveryReceiveThreadLaunch(fileid);
+            String fileid = commands.poll();                                                             /*What file does he want? Oh...Look...A fileID.  JOHN!!*/
+            recoveryReceiveThreadLaunch(fileid);                                                         /*John plz summon a restore thread*/
+            // Nao vai servir pa nada :D:D:D:D - Bom e barato só no barata :D:D:D:D
+            // AFINAL VAI :D:D:D
 
         }
-        else if(currentCommand.equals("STORED")){
+        else if(currentCommand.equals("STORED")){                                                       /*William someone needs us to inform that we stored something. This is great*/
 
-            String fileID = commands.poll();
-            String chunkNo = commands.poll();
-            String data = "STORED " + version + " " + fileID + " " + chunkNo + " \n \n";
-            DatagramPacket packet = new DatagramPacket(data.getBytes(),data.length(),MCControlVIP,MCControlPort);
-            try{MCControlSock.send(packet);}
+            String fileID = commands.poll();                                                            /*Let's see what the fileID is*/
+            String chunkNo = commands.poll();                                                           /*He probabily sent us the chunkNo*/
+            String data = "STORED " + version + " " + fileID + " " + chunkNo + " \n \n";                /*Let's deliver the message*/
+            DatagramPacket packet = new DatagramPacket(data.getBytes(),data.length(),MCControlVIP,MCControlPort);   /*Just putting it in the envelope*/
+            try{MCControlSock.send(packet);}                                                            /*William watch how fast it goes! Perfect ^^ */
             catch(IOException e){ }
         }
-        else if(currentCommand.equals("GETCHUNK")){
-            String fileID = commands.poll();
-            String chunkNo = commands.poll();
+        else if(currentCommand.equals("GETCHUNK")){                                                     /*Leonel look...someone needs a chunk... Let's help*/
+            String fileID = commands.poll();                                                            /*Let's get the fileID*/
+            String chunkNo = commands.poll();                                                           /*RestoreThreads are such visionary threads! They gave us the chunk id*/
 
-            String data = "GETCHUNK " + version + " " + fileID + " " + chunkNo + " \n \n";
-            //System.out.println("Enviei : " + data);
-            DatagramPacket packet = new DatagramPacket(data.getBytes(),data.length(),MCControlVIP,MCControlPort);
+            String data = "GETCHUNK " + version + " " + fileID + " " + chunkNo + " \n \n";              /*Construct the message*/
+
+            DatagramPacket packet = new DatagramPacket(data.getBytes(),data.length(),MCControlVIP,MCControlPort);/*In the envelope*/
             try{
-                MCControlSock.send(packet);
-                //System.out.println("Enviei no MCControl: '" + data + "'");
+                MCControlSock.send(packet);                                                             /*ULELELE... SEND*/
             }
             catch(IOException e){ }
         }
-        else if(currentCommand.equals("DELETE")){
+        else if(currentCommand.equals("DELETE")){                                                       /**/
             String fileID = commands.poll();
             String data = "DELETE "+ fileID +" " + '\n'+" " + '\n';
             DatagramPacket packet = new DatagramPacket(data.getBytes(),data.length(),MCControlVIP,MCControlPort);
@@ -212,7 +211,7 @@ public class Peer {
     }
 
 
-    void controlThreadHandler(String message){
+    void controlThreadHandler(String message,DatagramPacket packet){
         if (message == null){return;}
         String[] controls = message.split(" ",2);
 
@@ -221,16 +220,25 @@ public class Peer {
             String id = ctrls[2];
             String chunkNo = ctrls[3];
             receivedStoreMessagesHandler(id, chunkNo);
+            logMutex.lock();
+            logs.add(new Log(Log.STORED,Log.IN,System.currentTimeMillis(),id,Integer.parseInt(chunkNo),packet.getAddress()));
+            logMutex.unlock();
         }
         else if(controls[0].equalsIgnoreCase("GETCHUNK")){
             String[] ctrls = message.split(" ", 5);
-
-            //System.out.println("DETETEI GET CHUNK");
             String id = ctrls[2];
             String chunkNo = ctrls[3];
             receivedGetChunkMessagesHandler(id, chunkNo);
+            logMutex.lock();
+            logs.add(new Log(Log.STORED,Log.IN,System.currentTimeMillis(),id,Integer.parseInt(chunkNo)));
+            logMutex.unlock();
         }
-        else if(controls[0].equalsIgnoreCase("DELETE"))  {deleteMessageHandler(controls[1]);}
+        else if(controls[0].equalsIgnoreCase("DELETE"))  {
+            deleteMessageHandler(controls[1]);
+            logMutex.lock();
+            logs.add(new Log(Log.DELETE,Log.IN,System.currentTimeMillis(),controls[1]));
+            logMutex.unlock();
+        }
         else if(controls[0].equalsIgnoreCase("REMOVED")) {System.out.println("REMOVED message detected by marisculino! Guga La");}
         else {System.out.println("Invalid");}
 
@@ -238,9 +246,11 @@ public class Peer {
 
     void deleteMessageHandler(String cmd){
         if (cmd == null){return;}
-        String[] msg = cmd.split(" ",2);
-        System.out.println(Arrays.toString(msg));
+        String[] msg = cmd.split(" ",2);;
         deleteThreadLaunch(msg[0]);
+        logMutex.lock();
+        logs.add(new Log(Log.DELETE,Log.IN, System.currentTimeMillis(),msg[0]));
+        logMutex.unlock();
     }
     void receivedStoreMessagesHandler(String fileID, String chunkNo){
         if(BackupThreads.get(fileID) != null){
@@ -260,6 +270,9 @@ public class Peer {
             }
             storedCounterMutex.unlock();
         }
+        logMutex.lock();
+        logs.add(new Log(Log.STORED,Log.IN,System.currentTimeMillis(),fileID,Integer.parseInt(chunkNo)));
+        logMutex.unlock();
 
 
     }

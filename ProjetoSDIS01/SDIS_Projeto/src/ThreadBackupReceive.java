@@ -95,6 +95,7 @@ public class ThreadBackupReceive implements Runnable {
             }
             catch(SocketTimeoutException e){}
             catch(IOException e){}
+            catch(Exception e){System.out.println("Don't worry!");}
 
             handlerQueue();
         }
