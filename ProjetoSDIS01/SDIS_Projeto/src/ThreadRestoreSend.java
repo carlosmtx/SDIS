@@ -47,19 +47,19 @@ public class ThreadRestoreSend implements Runnable{
         String data = "CHUNK"       +' '+
                 Peer.version        +' '+
                 fileID              +' '+
-                chunkNo             +' '+
-                '\n'                +' '+
-                '\n'                +' '+
+                Integer.parseInt(chunkNo)  +' '+
+                '\r'+'\n'           +
+                '\r'+'\n'           +
                 dataToSend;
 
-        //System.out.println("A enviar: \n****************\n'" + data + "\n****************");
         DatagramPacket packet = new DatagramPacket(data.getBytes(),data.length(),MCRestoreAddress,MCRestorePort);
-        System.out.println("Restore enviou packet com tamanhao: " + data.getBytes().length);
         MCRestoreSockMutex.lock();                                                                                   /*Trying to lock resource*/
         try{
             MCRestore.send(packet);                                                                                  /*Sending data*/
         }catch(IOException e){}
         MCRestoreSockMutex.unlock();
+
+        System.out.println("[RESTORE_SEND] ENVIOU CHUNK NO " + chunkNo);
     }
 
     private String getInfoFromFile(String pathChunk){
@@ -73,8 +73,6 @@ public class ThreadRestoreSend implements Runnable{
 
             data = new String(bytes);
 
-            //System.out.println("****************** Data Lida do Ficheiro ******************\n" + data + "\n********************************************\n");
-            System.out.println("Enviou Packet com ChunkNo: " + chunkNo);
         }catch(IOException e){
             e.printStackTrace();
         }

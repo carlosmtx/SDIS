@@ -39,7 +39,8 @@ public class ThreadRestoreReceive implements Runnable {
 
         for(int i = 0; i < p.backupLog.size(); i++){
             if(p.backupLog.get(i).hashName == fileid){
-                this.numberOfChunks = p.backupLog.get(i).noChunks;
+                this.numberOfChunks = p.backupLog.get(i).noChunks+1;
+
                 this.fileName = p.backupLog.get(i).fileName;
             }
         }
@@ -51,25 +52,25 @@ public class ThreadRestoreReceive implements Runnable {
         this.fileName.replace("/", Pattern.quote(File.separator));
         String[] parts = this.fileName.split(Pattern.quote(File.separator));
         String name = parts[parts.length-1];
-        //this.fileName = "\\RestoredFiles\\"+name;
-        this.fileName = name;
+        this.fileName = name; /*"RestoredFiles/"+name; */
 
     }
 
     public void run(){
-        System.out.println("Entrou");
         while(!Peer.endProgram){
-            byte[] buff = new byte[209];
+            byte[] buff = new byte[100+Peer.chunkSize];
+
             DatagramPacket packet = new DatagramPacket(buff,buff.length);
+
             try{
                 MCRestoreSock.setSoTimeout(50);
                 MCRestoreSock.receive(packet);
                 if(packetHandler(packet)){
-                    System.out.println("Ja recebeu todos os chunks");
+                    System.out.println("[TRR] Ja recebeu todos os chunks");
                     break;
                 }
                 else{
-                    System.out.println("Ainda nao acabou por isso vou continuar a escutar");
+
                 }
             }
             catch(SocketTimeoutException e){}
@@ -77,13 +78,7 @@ public class ThreadRestoreReceive implements Runnable {
 
         }
 
-        System.out.println("Terminei escuta - passar po ficheiro");
-        System.out.println(Arrays.toString(chunksStored));
-
         File file = new File(fileName);
-        //System.out.println("Ficheiro vai-se chamar " +fileName);
-
-        // if file doesnt exists, then create it
         try{
             if (!file.exists()) {
                 file.createNewFile();
@@ -93,10 +88,10 @@ public class ThreadRestoreReceive implements Runnable {
             BufferedWriter bw = new BufferedWriter(fw);
             for(int i = 0; i < chunksStored.length; i++){
                 bw.write(chunksStored[i]);
-                //System.out.println("Passei po ficheiro " + i);
+                System.out.println("[TRR] Passei po ficheiro " + i);
             }
             bw.close();
-            System.out.println("Ficheiro Restaurado com sucesso: " + this.fileName);
+            System.out.println("[TRR] Ficheiro Restaurado com sucesso: '" + this.fileName + "'");
 
         }
         catch(IOException e){
@@ -105,28 +100,31 @@ public class ThreadRestoreReceive implements Runnable {
     }
 
     boolean packetHandler(DatagramPacket packet){
+
+
         String rec = new String(packet.getData());
-        String[] receivedMessage = rec.split("\\s",7);
+        rec = rec.substring(0,packet.getLength());
+
+        String[] receivedMessage = rec.split(" ",5);
         String receivedID  = receivedMessage[2];
         String chunkNo = receivedMessage[3];
-        String content = receivedMessage[6];
+        String content = receivedMessage[4];
+        content = content.substring(4,content.length());
 
-        System.out.println("Recebi chunk: " + chunkNo);
         if(receivedID.equals(this.fileid)){
             // Ficheiro da Thread criada
             int no = Integer.parseInt(chunkNo);
 
             if(chunksStored[no] == null){
-                System.out.println("Ainda nao tinha este cromo");
+                System.out.println("[RESTORE_RECEIVE] RECEBEU CHUNK NO " + chunkNo + "***\n"+ content + "****");
+                System.out.println("[RESTORE_RECEIVE] Ainda nao tinha este pedaco");
                 chunksStored[no] = content;
                 positionCheck.add(true);
             }
             else{
-                System.out.println("Desculpa ja tinha oops");
+                System.out.println("[RESTORE_RECEIVE] Desculpa ja tinha oops");
             }
-
         }
-
         return isTransferComplete();
     }
 

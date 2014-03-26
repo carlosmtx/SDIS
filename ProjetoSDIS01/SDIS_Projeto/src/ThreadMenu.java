@@ -227,7 +227,8 @@ public class ThreadMenu implements Runnable{
         commands.add(fileid);
         commandQueueMutex.unlock();
 
-        for(int i = 0; i < aux.noChunks; i++){
+        System.out.println("[MENU NIEFUNFUWENFI " + aux.noChunks);
+        for(int i = 0; i < aux.noChunks+1; i++){
             commandQueueMutex.lock();
             commands.add("GETCHUNK");
             commands.add(fileid);
