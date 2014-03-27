@@ -47,7 +47,7 @@ public class ThreadBackupSend implements Runnable{
         backupThreadMutex.unlock();                                                                                 /*Unlocking resource*/
     }
     public void run(){
-        ArrayList<String> aux = file.chunkFile();                                                                   /*Obtaining the file divided in chunks*/
+        ArrayList<byte[]> aux = file.chunkFile();                                                                   /*Obtaining the file divided in chunks*/
         System.out.println("Vou enviar chunks: " +aux.size());
         for(int i = 0; i < aux.size(); i++){                                                                        /*Sending all the chunks*/
             sendPacket(i,file.getRepDegree(),aux);

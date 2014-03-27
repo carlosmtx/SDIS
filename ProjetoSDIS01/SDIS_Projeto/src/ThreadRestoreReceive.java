@@ -95,7 +95,10 @@ public class ThreadRestoreReceive implements Runnable {
             catch(SocketTimeoutException e){i--;attemptsNumber++;resend=true;}
             catch(IOException e){}
         }
-        if(attemptsNumber == 5){System.out.println("Nao deu Devia mandar uma excepcao .... ThreadRestoreReceive linha 96");}
+        if(attemptsNumber == 5){
+            System.out.println("Nao deu Devia mandar uma excepcao .... ThreadRestoreReceive linha 96");
+            return;
+        }
 
         File file = new File(fileName);
         try{

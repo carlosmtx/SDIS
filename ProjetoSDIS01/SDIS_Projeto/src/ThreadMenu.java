@@ -53,10 +53,12 @@ public class ThreadMenu implements Runnable{
         Random l = new Random();
         int msg = l.nextInt(egg.size()-1);
 
+        /*
         System.out.println("COMO TA O BACKUPLOG:");
         for(int i = 0; i < backupLog.size(); i++){
             System.out.println(backupLog.get(i).fileName + " ; " + backupLog.get(i).noChunks);
         }
+        */
 
         System.out.print(""+
                 "\n  =========================================== "+

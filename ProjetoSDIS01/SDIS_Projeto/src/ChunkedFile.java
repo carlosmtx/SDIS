@@ -7,7 +7,7 @@ public class ChunkedFile {
 
     private String filename;
     private int chunkSize;
-    private ArrayList<String> chunks = new ArrayList<String>();
+    private ArrayList<byte[]> chunks = new ArrayList<byte[]>();
     private File file;
     private String hashName;
     private int repDegree;
@@ -29,27 +29,29 @@ public class ChunkedFile {
             hashName+= String.format("%02X",shaEncode[i] );
         }
     }
-    public ArrayList<String> chunkFile(){
+    public byte[] byteTrimmer(byte[] bytes,int startP,int no){
+        byte[] res = new byte[no];
+        for (int i = 0 ; i < no ;i++){
+            res[i]=bytes[startP+i];
+        }
+        return res;
+    }
+    public ArrayList<byte[]> chunkFile(){
         try{
             byte[] bytes = new byte[(int)file.length()];
             DataInputStream dataInputStream = new DataInputStream(new BufferedInputStream(new FileInputStream(filename)));
             dataInputStream.readFully(bytes);
             dataInputStream.close();
-
-            String data = new String(bytes);
-            int i = 0;
-            while(i < data.length()){
-                if( i + chunkSize > data.length()){ // Ultimo chunk
-                    chunks.add(data.substring(i));
-                    i+= chunkSize;
+            for (int i = 0 ; i < bytes.length ; i+=chunkSize){
+                if (i+chunkSize > bytes.length){
+                    chunks.add(byteTrimmer(bytes,i,bytes.length-i) );
                 }
-                else{
-                    chunks.add(data.substring(i, i + chunkSize));
-                    i+= chunkSize;
+                else {
+                    chunks.add(byteTrimmer(bytes,i,chunkSize) );
                 }
             }
 
-        }catch(Exception e){
+        }catch(IOException e){
             e.printStackTrace();
         }
         return chunks;
@@ -66,7 +68,7 @@ public class ChunkedFile {
     public void setChunkSize(int chunkSize) {
         this.chunkSize = chunkSize;
     }
-    public ArrayList<String> getChunks() {
+    public ArrayList<byte[]> getChunks() {
         return chunks;
     }
     public void printChunks(){
