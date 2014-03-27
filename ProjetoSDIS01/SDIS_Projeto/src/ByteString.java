@@ -2,7 +2,7 @@
  * Created by Leonel Araujo on 27-03-2014.
  */
 public class ByteString {
-    final byte[] myByte;
+    byte[] myByte;
     ByteString(byte[] a){
         myByte = new byte[a.length];
         for ( int i = 0 ; i < a.length ; i++){
@@ -10,33 +10,33 @@ public class ByteString {
         }
     }
 
-    ByteString[] split(byte splitChar,ByteString array,int maxSplit){
-        int[] posSplit = new int[maxSplit];
+    ByteString[] split(byte splitChar,int maxSplit){
+        ByteString array = this;
+        int[] posSplit = new int[maxSplit-1];
         int j=0;
-        for ( int i = 0; i < array.length() && maxSplit < j; i++){
+        for ( int i = 0; i < array.length() && j < maxSplit-1; i++){
             if(array.getBytes()[i] == splitChar){
                 posSplit[j++] = i;
             }
         }
-        ByteString[] odeioJavaAQuantidadeDeAbstracoesETaoGrandeQueJaNinguemPercebeNadaQueSeLixeVamosInventarARoda=new ByteString[j];
-        for ( int i = 0 ; i < j ; i++){
-            if(i+1 < j){
-                odeioJavaAQuantidadeDeAbstracoesETaoGrandeQueJaNinguemPercebeNadaQueSeLixeVamosInventarARoda[i] = substring(posSplit[i],posSplit[i+1]);
-            }
-            else{
-                odeioJavaAQuantidadeDeAbstracoesETaoGrandeQueJaNinguemPercebeNadaQueSeLixeVamosInventarARoda[i] = substring(posSplit[i],posSplit[array.length()-1]);
-            }
+        int prevPos =0;
+        ByteString[] aux = new ByteString[j+1];
+
+        for(int i = 0 ; i < posSplit.length ;i++){
+            aux[i]=substring(prevPos,posSplit[i]);
+            prevPos = posSplit[i]+1;
         }
-        return odeioJavaAQuantidadeDeAbstracoesETaoGrandeQueJaNinguemPercebeNadaQueSeLixeVamosInventarARoda;
+        aux[aux.length-1] = substring(prevPos,this.length());
+        return aux;
     }
 
     ByteString substring(int posInicial, int posFinal){
 
         byte[] result = new byte[posFinal-posInicial];
 
-        for(int i = posInicial, j = 0; i < posFinal; i++){
+        for(int i = posInicial, j = 0; i < posFinal; i++,j++){
             result[j] = myByte[i];
-            j++;
+
         }
 
         ByteString res = new ByteString(result);
@@ -50,10 +50,16 @@ public class ByteString {
             full[i]=a.getBytes()[i];
         }
         int j;
-        for (j=i; i < b.length() ; i++){
-            full[j] = b.getBytes()[i];
+        for (j=0; j < b.length() ; j++,i++){
+            full[i] = b.getBytes()[j];
         }
 
+        myByte = full;
+    }
+
+    void add(byte[] b){
+        ByteString f = new ByteString(b);
+        add(f);
     }
     byte[] getBytes(){
         return myByte;

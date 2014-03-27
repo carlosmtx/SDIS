@@ -1,9 +1,6 @@
 import sun.awt.Mutex;
 
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.io.*;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
@@ -25,7 +22,7 @@ public class ThreadRestoreReceive implements Runnable {
     int packetReceivedSize = 1024;
 
     ArrayList<Boolean> positionCheck;
-    String[] chunksStored;
+    ByteString[] chunksStored;
 
     String fileid;
     long numberOfChunks;
@@ -61,7 +58,7 @@ public class ThreadRestoreReceive implements Runnable {
         }
 
         positionCheck = new ArrayList<Boolean>();
-        chunksStored = new String[(int)numberOfChunks];
+        chunksStored = new ByteString[(int)numberOfChunks];
 
         this.fileName.replace("/", Pattern.quote(File.separator));
         String[] parts = this.fileName.split(Pattern.quote(File.separator));
@@ -72,7 +69,7 @@ public class ThreadRestoreReceive implements Runnable {
 
     public void run(){
         boolean resend = true;
-        byte[] buff = new byte[100+Peer.chunkSize];
+        byte[] buff = new byte[200+Peer.chunkSize];
         int attemptsNumber=0;
         DatagramPacket packet = new DatagramPacket(buff,buff.length);
         for(int i = 0; i < chunkNo && !Peer.endProgram && attemptsNumber < 5; i++){
@@ -96,23 +93,31 @@ public class ThreadRestoreReceive implements Runnable {
             catch(IOException e){}
         }
         if(attemptsNumber == 5){
-            System.out.println("Nao deu Devia mandar uma excepcao .... ThreadRestoreReceive linha 96");
+            System.out.println("Nao deu. Devia mandar uma excepcao .... ThreadRestoreReceive linha 96");
             return;
         }
 
         File file = new File(fileName);
+
         try{
+
             if (!file.exists()) {
                 file.createNewFile();
             }
 
+            FileOutputStream fw = new FileOutputStream(file);
+            for(int i = 0; i < chunkNo; i++){
+                fw.write(chunksStored[i].getBytes());
+            }
+
+            /*
             FileWriter fw = new FileWriter(file.getAbsoluteFile());
             BufferedWriter bw = new BufferedWriter(fw);
             for(int i = 0; i < chunkNo; i++){
                 bw.write(chunksStored[i]);
             }
             bw.close();
-
+            */
 
         }
         catch(IOException e){
@@ -121,20 +126,25 @@ public class ThreadRestoreReceive implements Runnable {
     }
 
     boolean packetHandler(DatagramPacket packet){
-
-
-        String rec = new String(packet.getData());
+        //String rec = new String(packet.getData());
+        ByteString rec = new ByteString(packet.getData());
         rec = rec.substring(0,packet.getLength());
 
-        String[] receivedMessage = rec.split(" ",5);
-        String receivedID  = receivedMessage[2];
-        String chunkNo = receivedMessage[3];
-        String content = receivedMessage[4];
-        content = content.substring(4,content.length());
+        ByteString[] receivedMessage = rec.split((byte)' ', 4);
 
-        if(receivedID.equals(this.fileid)){
+        ByteString receivedID  = receivedMessage[2];
+        ByteString rest = receivedMessage[3];
+        ByteString[] aux = rest.split((byte)'\n', 3);
+
+        ByteString chunkNo = aux[0];
+        chunkNo = chunkNo.substring(0,chunkNo.length()-1);
+
+        ByteString content = aux[2];
+
+        String thisId = new String(receivedID.getBytes());
+        if(thisId.equals(this.fileid)){
             // Ficheiro da Thread criada
-            int no = Integer.parseInt(chunkNo);
+            int no = Integer.parseInt(new String(chunkNo.getBytes()));
 
             if(chunksStored[no] == null){
 

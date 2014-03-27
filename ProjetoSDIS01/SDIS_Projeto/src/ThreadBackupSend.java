@@ -30,20 +30,26 @@ public class ThreadBackupSend implements Runnable{
                         Peer.version        +' '+
                         file.getHash()      +' '+
                         i                   +' '+
-                        repDegree           +' '+
+                        repDegree           +
                         '\r'+'\n'           +
                         '\r'+'\n';
         return header;
     }
-    private void sendPacket(int i,int repDegree,ArrayList fileChunks){
-        String data = getHeader(i,repDegree)+ fileChunks.get(i);
-
-        DatagramPacket packet = new DatagramPacket(data.getBytes(),data.length(),MCBackupAddress,2002);
-
-        backupThreadMutex.lock();                                                                                   /*Trying to lock resource*/
+    private void sendPacket(int i,int repDegree,ArrayList<byte[]> fileChunks){
+        //String data = getHeader(i,repDegree)+ fileChunks.get(i);
         try{
+            ByteString data = new ByteString(getHeader(i,repDegree).getBytes());
+            data.add(fileChunks.get(i));
+
+            System.out.println("[TBS] A enviar pacote " + i + " com " + data.length() + " bytes");
+            DatagramPacket packet = new DatagramPacket(data.getBytes(),data.length(),MCBackupAddress,2002);
+
+            backupThreadMutex.lock();                                                                                   /*Trying to lock resource*/
+
             MCBackup.send(packet);                                                                                  /*Sending data*/
-        }catch(IOException e){}
+        }catch(Exception e){
+            System.out.println("[TBR] Excecao a enviar pacote " + i);
+        }
         backupThreadMutex.unlock();                                                                                 /*Unlocking resource*/
     }
     public void run(){
@@ -52,10 +58,12 @@ public class ThreadBackupSend implements Runnable{
         for(int i = 0; i < aux.size(); i++){                                                                        /*Sending all the chunks*/
             sendPacket(i,file.getRepDegree(),aux);
         }
+        /*
         for ( int i = 0 ; i < chunksStored.length ; i++){
             if (chunksStored[i] < file.getRepDegree()){
                sendPacket(i,file.getRepDegree()-chunksStored[i],aux);
             }
         }
+        */
     }
 }

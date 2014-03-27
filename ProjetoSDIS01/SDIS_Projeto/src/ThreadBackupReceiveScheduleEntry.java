@@ -1,9 +1,6 @@
 import sun.awt.Mutex;
 
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.io.*;
 import java.util.Queue;
 
 /**
@@ -11,12 +8,12 @@ import java.util.Queue;
  */
 public class ThreadBackupReceiveScheduleEntry {
     long time;
-    String no;
-    String fileID;
-    String chunk;
-    String replicationDeg;
+    ByteString no;
+    ByteString fileID;
+    ByteString chunk;
+    ByteString replicationDeg;
 
-    ThreadBackupReceiveScheduleEntry(int randomTime,String fileID,String no,String chunk, String repDeg){
+    ThreadBackupReceiveScheduleEntry(int randomTime,ByteString fileID,ByteString no,ByteString chunk, ByteString repDeg){
         time = System.currentTimeMillis()+(long)randomTime;
         this.fileID = fileID;
         this.no = no;
@@ -27,26 +24,28 @@ public class ThreadBackupReceiveScheduleEntry {
         return time < System.currentTimeMillis() ;
     }
     void saveChunk(){
+
         try{
             File dir = new File("BackupFiles");
             if (!dir.exists()) {
                 dir.mkdir();
             }
-            dir = new File("BackupFiles/"+fileID);
+            dir = new File("BackupFiles/"+(new String(fileID.getBytes())));
             if (!dir.exists()) {
                 dir.mkdir();
             }
 
-            File file = new File("BackupFiles/"+fileID+"/"+no+".mdr");
+            File file = new File("BackupFiles/"+(new String(fileID.getBytes()))+"/"+(new String(no.getBytes()))+".mdr");
             if (!file.exists()) {
                 file.createNewFile();
             }
-            FileWriter fw = new FileWriter(file.getAbsoluteFile());
-            BufferedWriter bw = new BufferedWriter(fw);
-            bw.write(chunk);
-            bw.close();
+
+            FileOutputStream fw = new FileOutputStream(file);
+            fw.write(chunk.getBytes());
+            fw.close();
         }
         catch(IOException e){}
+        catch(Exception e){System.out.println("[SCHEDULE] Escrita deu merda em " + (new String(no.getBytes())));}
     }
 
 }

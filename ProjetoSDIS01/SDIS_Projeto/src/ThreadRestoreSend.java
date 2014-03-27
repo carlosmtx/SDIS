@@ -23,7 +23,7 @@ public class ThreadRestoreSend implements Runnable{
     String fileID;
     String pathChunk;
     String chunkNo;
-    String dataToSend;
+    ByteString dataToSend;
 
     public ThreadRestoreSend(Peer p, String fileHash, String chunkNo, String path)throws SocketException {
 
@@ -42,17 +42,18 @@ public class ThreadRestoreSend implements Runnable{
         sendPacket(dataToSend);
     }
 
-    private void sendPacket(String dataToSend) {
+    private void sendPacket(ByteString dataToSend) {
 
         String data = "CHUNK"       +' '+
                 Peer.version        +' '+
                 fileID              +' '+
-                Integer.parseInt(chunkNo)  +' '+
+                Integer.parseInt(chunkNo)  +
                 '\r'+'\n'           +
-                '\r'+'\n'           +
-                dataToSend;
+                '\r'+'\n';
 
-        DatagramPacket packet = new DatagramPacket(data.getBytes(),data.length(),MCRestoreAddress,MCRestorePort);
+        ByteString toSend = new ByteString(data.getBytes());
+        toSend.add(dataToSend);
+        DatagramPacket packet = new DatagramPacket(toSend.getBytes(),toSend.length(),MCRestoreAddress,MCRestorePort);
         MCRestoreSockMutex.lock();                                                                                   /*Trying to lock resource*/
         try{
             MCRestore.send(packet);                                                                                  /*Sending data*/
@@ -62,22 +63,21 @@ public class ThreadRestoreSend implements Runnable{
         System.out.println("[RESTORE_SEND] ENVIOU CHUNK NO " + chunkNo);
     }
 
-    private String getInfoFromFile(String pathChunk){
-        String data = "";
+    private ByteString getInfoFromFile(String pathChunk){
+        ByteString res = null;
         try{
             File chunk = new File(pathChunk);
             byte[] bytes = new byte[(int)chunk.length()];
             DataInputStream dataInputStream = new DataInputStream(new BufferedInputStream(new FileInputStream(pathChunk)));
             dataInputStream.readFully(bytes);
             dataInputStream.close();
-
-            data = new String(bytes);
+            res = new ByteString(bytes);
 
         }catch(IOException e){
             e.printStackTrace();
         }
 
-        return data;
+        return res;
     }
 
 }

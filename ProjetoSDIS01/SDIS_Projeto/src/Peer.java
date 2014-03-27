@@ -10,7 +10,7 @@ import java.util.*;
  */
 public class Peer {
     static public String version="1.0";
-    static public int chunkSize=128;                                                  /*MaxSize of each chunk to be sent*/
+    static public int chunkSize=640;                                                  /*MaxSize of each chunk to be sent*/
 
     static public int trafulhice;
 
@@ -181,9 +181,10 @@ public class Peer {
             String fileID = commands.poll();                                                            /*Let's get the fileID*/
             String chunkNo = commands.poll();                                                           /*RestoreThreads are such visionary threads! They gave us the chunk id*/
 
-            String data = "GETCHUNK " + version + " " + fileID + " " + chunkNo + " \n \n";              /*Construct the message*/
+            String data = "GETCHUNK " + version + " " + fileID + " " + chunkNo + "\r\n\r\n";              /*Construct the message*/
+            ByteString d = new ByteString(data.getBytes());
 
-            DatagramPacket packet = new DatagramPacket(data.getBytes(),data.length(),MCControlVIP,MCControlPort);/*In the envelope*/
+            DatagramPacket packet = new DatagramPacket(d.getBytes(),d.length(),MCControlVIP,MCControlPort);/*In the envelope*/
             try{
                 MCControlSock.send(packet);                                                             /*ULELELE... SEND*/
             }
@@ -235,6 +236,7 @@ public class Peer {
             String[] ctrls = message.split(" ", 5);
             String id = ctrls[2];
             String chunkNo = ctrls[3];
+            chunkNo = chunkNo.substring(0, chunkNo.length()-4);
             receivedGetChunkMessagesHandler(id, chunkNo);
             logMutex.lock();
             logs.add(new Log(Log.STORED,Log.IN,System.currentTimeMillis(),id,Integer.parseInt(chunkNo)));

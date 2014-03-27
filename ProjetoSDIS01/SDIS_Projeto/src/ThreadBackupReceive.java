@@ -46,8 +46,8 @@ public class ThreadBackupReceive implements Runnable {
             ThreadBackupReceiveScheduleEntry currentEntry = entry.peek();
             if(!entry.isEmpty() && currentEntry.isReady()){
                 storedCounterMutex.lock();
-                String index = currentEntry.fileID + currentEntry.no;
-                int repDegree = Integer.parseInt(currentEntry.replicationDeg);
+                String index = (new String(currentEntry.fileID.getBytes())) + (new String(currentEntry.no.getBytes()));
+                int repDegree = Integer.parseInt(new String(currentEntry.replicationDeg.getBytes()));
                 int value = StoreCounter.get(index) == null ? 0 : StoreCounter.get(index) ;
                 storedCounterMutex.unlock();
                 if( value < repDegree){
@@ -56,8 +56,8 @@ public class ThreadBackupReceive implements Runnable {
                     currentEntry.saveChunk();
                     commandQueueMutex.lock();
                     commands.add("STORED");
-                    commands.add(currentEntry.fileID);                                                              /* Envia comando ao processo principal para enviar mensagem STORED*/
-                    commands.add(currentEntry.no);
+                    commands.add(new String(currentEntry.fileID.getBytes()));                                                              /* Envia comando ao processo principal para enviar mensagem STORED*/
+                    commands.add(new String(currentEntry.no.getBytes()));
                     commandQueueMutex.unlock();
                 }
 
@@ -69,26 +69,38 @@ public class ThreadBackupReceive implements Runnable {
     }
     public void packetHandler(DatagramPacket packet){
         // RECEBE PUTCHUNK
-        String rec = new String(packet.getData());
-        rec = rec.substring(packet.getOffset(), packet.getLength());
-        String[] receivedMessage = rec.split(" ",6);
 
-        String fileId  = receivedMessage[2];
-        String chunkNo = receivedMessage[3];
-        String repDeg  = receivedMessage[4];
-        String content = receivedMessage[5];
+        ByteString packetReceived = new ByteString(packet.getData());
+        packetReceived = packetReceived.substring(packet.getOffset(),packet.getLength());
+        int i = packet.getLength();
 
-        content = content.substring(4, content.length());
+        ByteString[] receivedMessage = packetReceived.split((byte)' ', 5);
+
+        ByteString fileId  = receivedMessage[2];
+        ByteString chunkNo = receivedMessage[3];
+        ByteString rest  = receivedMessage[4];
+
+        ByteString[] aux = rest.split((byte)'\n', 3);
+
+        ByteString repDeg = aux[0];
+        repDeg = repDeg.substring(0,repDeg.length()-1);
+        ByteString content = aux[2];
 
         hashTableBackupMutex.lock();
-        if (BackupThreads.get(fileId)!= null){
+        if (BackupThreads.get(new String(fileId.getBytes()))!= null){
             hashTableBackupMutex.unlock();
             return;
         }
         hashTableBackupMutex.unlock();
+
+        String s = new String(content.getBytes());
+        //System.out.println("[TBR] Recebi pacote " + (new String(chunkNo.getBytes())) + " com " + packet.getLength() +"\n[TBR] Com Conteudo " +
+        //        "***\n" + s + "***");
+
         Random r = new Random();
         ThreadBackupReceiveScheduleEntry newEntry = new ThreadBackupReceiveScheduleEntry(r.nextInt(400), fileId, chunkNo, content, repDeg);
         entry.add(newEntry);
+
     }
     public void run(){
         while(!Peer.endProgram){
@@ -96,14 +108,16 @@ public class ThreadBackupReceive implements Runnable {
             byte[] buff = new byte[200+Peer.chunkSize];
             DatagramPacket packet = new DatagramPacket(buff,buff.length);
 
+
             try{
                 MCBackup.setSoTimeout(50);
                 MCBackup.receive(packet);
+
                 packetHandler(packet);
             }
             catch(SocketTimeoutException e){}
             catch(IOException e){}
-            catch(Exception e){System.out.println("Don't worry!");}
+            catch(Exception e){e.printStackTrace();}
 
             handlerQueue();
         }
