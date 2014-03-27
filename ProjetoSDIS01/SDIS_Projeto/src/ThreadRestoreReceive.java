@@ -10,6 +10,7 @@ import java.net.InetAddress;
 import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Queue;
 import java.util.regex.Pattern;
 
 /**
@@ -30,12 +31,26 @@ public class ThreadRestoreReceive implements Runnable {
     long numberOfChunks;
     String fileName;
 
+    Mutex commandQueueMutex;
+    Queue<String> commands;
+    long chunkNo;
+
     ThreadRestoreReceive(Peer p, String fileid){
         this.MCRestoreSock = p.MCRecoverySock;
         this.MCRestoreAddress = p.MCRecoveryVIP;
         this.MCRestoreSockMutex = p.MCRestoreSockMutex;
         this.MCRestorePort = p.MCRecoveryPort;
         this.fileid = fileid;
+        this.commandQueueMutex = p.commandQueueMutex;
+        this.commands = p.commands;
+
+        LogBackup aux = null;
+        for(int i = 0; i < p.backupLog.size(); i++){
+            if(p.backupLog.get(i).hashName.equals(fileid)){
+                aux = p.backupLog.get(i);
+            }
+        }
+        chunkNo = aux.noChunks +1;
 
         for(int i = 0; i < p.backupLog.size(); i++){
             if(p.backupLog.get(i).hashName == fileid){
@@ -48,7 +63,6 @@ public class ThreadRestoreReceive implements Runnable {
         positionCheck = new ArrayList<Boolean>();
         chunksStored = new String[(int)numberOfChunks];
 
-
         this.fileName.replace("/", Pattern.quote(File.separator));
         String[] parts = this.fileName.split(Pattern.quote(File.separator));
         String name = parts[parts.length-1];
@@ -57,26 +71,31 @@ public class ThreadRestoreReceive implements Runnable {
     }
 
     public void run(){
-        while(!Peer.endProgram){
-            byte[] buff = new byte[100+Peer.chunkSize];
-
-            DatagramPacket packet = new DatagramPacket(buff,buff.length);
-
+        boolean resend = true;
+        byte[] buff = new byte[100+Peer.chunkSize];
+        int attemptsNumber=0;
+        DatagramPacket packet = new DatagramPacket(buff,buff.length);
+        for(int i = 0; i < chunkNo && !Peer.endProgram && attemptsNumber < 5; i++){
             try{
-                MCRestoreSock.setSoTimeout(50);
+                if(resend){
+                System.out.println("Vou tentar receber o :"+i+"pacote");
+                commandQueueMutex.lock();
+                commands.add("GETCHUNK");
+                commands.add(fileid);
+                commands.add(""+i);
+                commandQueueMutex.unlock();
+                }
+                MCRestoreSock.setSoTimeout(100);
                 MCRestoreSock.receive(packet);
-                if(packetHandler(packet)){
-                    System.out.println("[TRR] Ja recebeu todos os chunks");
-                    break;
-                }
-                else{
+                attemptsNumber =0;
+                if(!packetHandler(packet))
+                {i--;resend=false;}
 
-                }
             }
-            catch(SocketTimeoutException e){}
+            catch(SocketTimeoutException e){i--;attemptsNumber++;resend=true;}
             catch(IOException e){}
-
         }
+        if(attemptsNumber == 5){System.out.println("Nao deu Devia mandar uma excepcao .... ThreadRestoreReceive linha 96");}
 
         File file = new File(fileName);
         try{
@@ -86,12 +105,11 @@ public class ThreadRestoreReceive implements Runnable {
 
             FileWriter fw = new FileWriter(file.getAbsoluteFile());
             BufferedWriter bw = new BufferedWriter(fw);
-            for(int i = 0; i < chunksStored.length; i++){
+            for(int i = 0; i < chunkNo; i++){
                 bw.write(chunksStored[i]);
-                System.out.println("[TRR] Passei po ficheiro " + i);
             }
             bw.close();
-            System.out.println("[TRR] Ficheiro Restaurado com sucesso: '" + this.fileName + "'");
+
 
         }
         catch(IOException e){
@@ -116,16 +134,15 @@ public class ThreadRestoreReceive implements Runnable {
             int no = Integer.parseInt(chunkNo);
 
             if(chunksStored[no] == null){
-                System.out.println("[RESTORE_RECEIVE] RECEBEU CHUNK NO " + chunkNo + "***\n"+ content + "****");
-                System.out.println("[RESTORE_RECEIVE] Ainda nao tinha este pedaco");
+
                 chunksStored[no] = content;
                 positionCheck.add(true);
             }
             else{
-                System.out.println("[RESTORE_RECEIVE] Desculpa ja tinha oops");
+                return false;
             }
         }
-        return isTransferComplete();
+        return true;
     }
 
     boolean isTransferComplete(){

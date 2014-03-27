@@ -303,7 +303,7 @@ public class Peer {
 
     void deleteThreadLaunch(String fileID){
 
-        new Thread(new ThreadDelete(fileID)).start();
+        new Thread(new ThreadDelete(this,fileID)).start();
     }
     void recoverySendThreadLaunch(String filename, String chunkNo, String path){
         try{

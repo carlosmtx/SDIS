@@ -38,12 +38,7 @@ public class ThreadBackupSend implements Runnable{
     private void sendPacket(int i,int repDegree,ArrayList fileChunks){
         String data = getHeader(i,repDegree)+ fileChunks.get(i);
 
-        // Problema nao e aqui. Envia direito.
-
         DatagramPacket packet = new DatagramPacket(data.getBytes(),data.length(),MCBackupAddress,2002);
-
-        System.out.println("[TBS] PACKET ENVIADO ****" + data + "****");
-
 
         backupThreadMutex.lock();                                                                                   /*Trying to lock resource*/
         try{
@@ -52,14 +47,14 @@ public class ThreadBackupSend implements Runnable{
         backupThreadMutex.unlock();                                                                                 /*Unlocking resource*/
     }
     public void run(){
-        System.out.println("Backup Send Thread Gerada");
         ArrayList<String> aux = file.chunkFile();                                                                   /*Obtaining the file divided in chunks*/
+        System.out.println("Vou enviar chunks: " +aux.size());
         for(int i = 0; i < aux.size(); i++){                                                                        /*Sending all the chunks*/
             sendPacket(i,file.getRepDegree(),aux);
         }
         for ( int i = 0 ; i < chunksStored.length ; i++){
             if (chunksStored[i] < file.getRepDegree()){
-            //    sendPacket(i,file.getRepDegree()-chunksStored[i],aux);
+               sendPacket(i,file.getRepDegree()-chunksStored[i],aux);
             }
         }
     }

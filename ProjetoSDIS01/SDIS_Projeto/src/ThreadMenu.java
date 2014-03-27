@@ -227,16 +227,16 @@ public class ThreadMenu implements Runnable{
         commands.add(fileid);
         commandQueueMutex.unlock();
 
-        System.out.println("[MENU NIEFUNFUWENFI " + aux.noChunks);
-        for(int i = 0; i < aux.noChunks+1; i++){
-            commandQueueMutex.lock();
-            commands.add("GETCHUNK");
-            commands.add(fileid);
-            commands.add(""+i);
-            commandQueueMutex.unlock();
-        }
     }
     private void addDeleteCommand(String filename){
+        boolean fileFound = false;
+        for(int i = 0; i < backupLog.size(); i++){
+            if(backupLog.get(i).fileName.equals(filename)){
+                fileFound = true;
+                filename=backupLog.get(i).hashName;
+                break;
+            }
+        }
         commandQueueMutex.lock();
         commands.add("DELETE");
         commands.add(filename);
