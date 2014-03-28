@@ -27,6 +27,9 @@ public class ThreadBackupReceive implements Runnable {
     Queue<String> commands;
     Mutex commandQueueMutex;
 
+    Hashtable<String, Integer> ChunksControl;
+    Mutex chunksControlMutex;
+
     Hashtable<String,Integer> StoredCounter;
     ThreadBackupReceive(Peer peer){
         this.MCBackup = peer.MCBackupSock;
@@ -39,6 +42,10 @@ public class ThreadBackupReceive implements Runnable {
         this.commandQueueMutex = peer.commandQueueMutex;
         this.StoredCounter = peer.StoreCounter;
         this.entry = new LinkedList<ThreadBackupReceiveScheduleEntry>();
+
+        this.ChunksControl = new Hashtable<String, Integer>();
+        this.chunksControlMutex = new Mutex();
+
     }
     public void handlerQueue(){
         boolean continueHandler = true;
@@ -76,6 +83,10 @@ public class ThreadBackupReceive implements Runnable {
 
         ByteString[] receivedMessage = packetReceived.split((byte)' ', 5);
 
+        if(receivedMessage.length < 5){
+            return;
+        }
+
         ByteString fileId  = receivedMessage[2];
         ByteString chunkNo = receivedMessage[3];
         ByteString rest  = receivedMessage[4];
@@ -93,26 +104,32 @@ public class ThreadBackupReceive implements Runnable {
         }
         hashTableBackupMutex.unlock();
 
-        String s = new String(content.getBytes());
+        chunksControlMutex.lock();
+        String id = new String(fileId.getBytes());
+        String no = new String(chunkNo.getBytes());
+        String hashtable_fileid = new String(id + no);
+        String rep = new String(repDeg.getBytes());
+        int hashtable_repDeg = Integer.parseInt(rep);
+        ChunksControl.put(hashtable_fileid, hashtable_repDeg);
+        chunksControlMutex.unlock();
+
+        //String s = new String(content.getBytes());
         //System.out.println("[TBR] Recebi pacote " + (new String(chunkNo.getBytes())) + " com " + packet.getLength() +"\n[TBR] Com Conteudo " +
         //        "***\n" + s + "***");
 
         Random r = new Random();
-        ThreadBackupReceiveScheduleEntry newEntry = new ThreadBackupReceiveScheduleEntry(r.nextInt(400), fileId, chunkNo, content, repDeg);
+        ThreadBackupReceiveScheduleEntry newEntry = new ThreadBackupReceiveScheduleEntry(r.nextInt(399)+1, fileId, chunkNo, content, repDeg);
         entry.add(newEntry);
 
     }
     public void run(){
         while(!Peer.endProgram){
-            // PUT CHUNKS
             byte[] buff = new byte[200+Peer.chunkSize];
             DatagramPacket packet = new DatagramPacket(buff,buff.length);
-
 
             try{
                 MCBackup.setSoTimeout(50);
                 MCBackup.receive(packet);
-
                 packetHandler(packet);
             }
             catch(SocketTimeoutException e){}

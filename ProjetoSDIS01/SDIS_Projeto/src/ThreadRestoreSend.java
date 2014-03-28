@@ -6,7 +6,9 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.SocketException;
+import java.util.Hashtable;
 import java.util.Queue;
+import java.util.Random;
 
 /**
  * Created by Leonel Araujo on 20-03-2014.
@@ -25,6 +27,8 @@ public class ThreadRestoreSend implements Runnable{
     String chunkNo;
     ByteString dataToSend;
 
+    Hashtable<String, Integer> ReceivedChunkCounter;
+
     public ThreadRestoreSend(Peer p, String fileHash, String chunkNo, String path)throws SocketException {
 
         this.MCRestore = p.MCRecoverySock;
@@ -36,10 +40,32 @@ public class ThreadRestoreSend implements Runnable{
         this.chunkNo = chunkNo;
         this.pathChunk = path;
 
+        this.ReceivedChunkCounter = p.ReceivedChunkCounter;
+
     }
     public void run(){
-        dataToSend = getInfoFromFile(pathChunk);
-        sendPacket(dataToSend);
+
+        String checkIfSent = new String(fileID + "_" + chunkNo);
+
+        if(ReceivedChunkCounter.get(checkIfSent) != null){
+            System.out.println("[TRS] " + chunkNo + " nao e preciso enviar pois ja foi enviada");
+        }
+        else{
+
+            Random r = new Random();
+            try{
+                int i = r.nextInt(399)+1;
+                System.out.println("[TRS] Vou ter de enviar " + chunkNo + " daqui a " + i + "ms");
+                Thread.sleep(r.nextInt(i));
+
+                dataToSend = getInfoFromFile(this.pathChunk);
+                sendPacket(dataToSend);
+
+            }
+            //catch(InterruptedException e){ e.printStackTrace();};
+            catch(Exception e){ e.printStackTrace();};
+
+        }
     }
 
     private void sendPacket(ByteString dataToSend) {
@@ -60,7 +86,7 @@ public class ThreadRestoreSend implements Runnable{
         }catch(IOException e){}
         MCRestoreSockMutex.unlock();
 
-        System.out.println("[RESTORE_SEND] ENVIOU CHUNK NO " + chunkNo);
+        //System.out.println("[RESTORE_SEND] ENVIOU CHUNK NO " + chunkNo);
     }
 
     private ByteString getInfoFromFile(String pathChunk){

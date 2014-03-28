@@ -7,6 +7,7 @@ import java.net.InetAddress;
 import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Hashtable;
 import java.util.Queue;
 import java.util.regex.Pattern;
 
@@ -19,7 +20,8 @@ public class ThreadRestoreReceive implements Runnable {
     Mutex MCRestoreSockMutex;
     int MCRestorePort;
 
-    int packetReceivedSize = 1024;
+    Hashtable<String, Integer> ReceivedChunkCounter;
+    Mutex receivedChunkCounterMutex;
 
     ArrayList<Boolean> positionCheck;
     ByteString[] chunksStored;
@@ -40,6 +42,8 @@ public class ThreadRestoreReceive implements Runnable {
         this.fileid = fileid;
         this.commandQueueMutex = p.commandQueueMutex;
         this.commands = p.commands;
+        this.ReceivedChunkCounter = p.ReceivedChunkCounter;
+        this.receivedChunkCounterMutex = p.receivedChunkCounterMutex;
 
         LogBackup aux = null;
         for(int i = 0; i < p.backupLog.size(); i++){
@@ -68,6 +72,8 @@ public class ThreadRestoreReceive implements Runnable {
     }
 
     public void run(){
+
+
         boolean resend = true;
         byte[] buff = new byte[200+Peer.chunkSize];
         int attemptsNumber=0;
@@ -75,15 +81,18 @@ public class ThreadRestoreReceive implements Runnable {
         for(int i = 0; i < chunkNo && !Peer.endProgram && attemptsNumber < 5; i++){
             try{
                 if(resend){
-                System.out.println("Vou tentar receber o :"+i+"pacote");
-                commandQueueMutex.lock();
-                commands.add("GETCHUNK");
-                commands.add(fileid);
-                commands.add(""+i);
-                commandQueueMutex.unlock();
+                    System.out.println("[TRS] Vou tentar receber o pacote " + i + " pela " + (attemptsNumber+1) + " vez");
+                    commandQueueMutex.lock();
+                    commands.add("GETCHUNK");
+                    commands.add(fileid);
+                    commands.add(""+i);
+                    commandQueueMutex.unlock();
                 }
                 MCRestoreSock.setSoTimeout(100);
                 MCRestoreSock.receive(packet);
+
+                refreshMonitorTable(packet);
+
                 attemptsNumber =0;
                 if(!packetHandler(packet))
                 {i--;resend=false;}
@@ -109,16 +118,6 @@ public class ThreadRestoreReceive implements Runnable {
             for(int i = 0; i < chunkNo; i++){
                 fw.write(chunksStored[i].getBytes());
             }
-
-            /*
-            FileWriter fw = new FileWriter(file.getAbsoluteFile());
-            BufferedWriter bw = new BufferedWriter(fw);
-            for(int i = 0; i < chunkNo; i++){
-                bw.write(chunksStored[i]);
-            }
-            bw.close();
-            */
-
         }
         catch(IOException e){
 
@@ -160,5 +159,36 @@ public class ThreadRestoreReceive implements Runnable {
 
     boolean isTransferComplete(){
         return this.positionCheck.size() == numberOfChunks;
+    }
+
+    private void refreshMonitorTable(DatagramPacket packet){
+        //CHUNK <Version> <FileId> <ChunkNo><CRLF> <CRLF> <Body>
+
+        ByteString rec = new ByteString(packet.getData());
+        rec = rec.substring(0,packet.getLength());
+
+        ByteString[] receivedMessage = rec.split((byte)' ', 4);
+
+        ByteString receivedID  = receivedMessage[2];
+        ByteString rest = receivedMessage[3];
+        ByteString[] aux = rest.split((byte)'\n', 3);
+
+        ByteString chunkNo = aux[0];
+        chunkNo = chunkNo.substring(0,chunkNo.length()-1);
+
+        String id = new String(receivedID.getBytes());
+        String no = new String(chunkNo.getBytes());
+        String entry  = new String(id + "_" + no);
+
+
+        receivedChunkCounterMutex.lock();
+        if(ReceivedChunkCounter.get(entry) == null){
+            ReceivedChunkCounter.put(entry,0);
+        }
+        ReceivedChunkCounter.put(entry, ReceivedChunkCounter.get(entry)+1);
+        receivedChunkCounterMutex.unlock();
+
+        //System.out.println("[TRR] Atualizei Hash com " + entry);
+        //System.out.println("[TRR] Atualizei Hash com " + (new String (chunkNo.getBytes())));
     }
 }

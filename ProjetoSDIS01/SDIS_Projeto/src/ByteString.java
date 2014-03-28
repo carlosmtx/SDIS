@@ -3,11 +3,14 @@
  */
 public class ByteString {
     byte[] myByte;
+    String c;
     ByteString(byte[] a){
         myByte = new byte[a.length];
         for ( int i = 0 ; i < a.length ; i++){
             myByte[i]=a[i];
         }
+
+
     }
 
     ByteString[] split(byte splitChar,int maxSplit){
@@ -22,7 +25,8 @@ public class ByteString {
         int prevPos =0;
         ByteString[] aux = new ByteString[j+1];
 
-        for(int i = 0 ; i < posSplit.length ;i++){
+        this.c = new String(myByte);
+        for(int i = 0 ; i < j ;i++){
             aux[i]=substring(prevPos,posSplit[i]);
             prevPos = posSplit[i]+1;
         }
@@ -31,7 +35,7 @@ public class ByteString {
     }
 
     ByteString substring(int posInicial, int posFinal){
-
+        this.c = new String(myByte);
         byte[] result = new byte[posFinal-posInicial];
 
         for(int i = posInicial, j = 0; i < posFinal; i++,j++){

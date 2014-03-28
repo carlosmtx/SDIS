@@ -10,9 +10,7 @@ import java.util.*;
  */
 public class Peer {
     static public String version="1.0";
-    static public int chunkSize=640;                                                  /*MaxSize of each chunk to be sent*/
-
-    static public int trafulhice;
+    static public int chunkSize=100;                                                  /*MaxSize of each chunk to be sent*/
 
     static public  int repDegree=3;
     static public boolean endProgram=false;
@@ -28,20 +26,31 @@ public class Peer {
     MulticastSocket MCRecoverySock;
     MulticastSocket MCBackupSock;                                                     /*Socket for backup  channel communications*/
 
+    MulticastSocket RestoreChannelMonitor;
+
     Mutex MCRestoreSockMutex;
 
     Hashtable<String,ThreadBackupSend> BackupThreads;                                 /*Each position stores a thread for backup.*/
     Hashtable<String,ThreadRestoreSend> RecoveryThreads;                              /*Each position stores a thread for recovery*/
-    Hashtable<String,ThreadRestoreReceive> RecoveryReceiveThreads;
+
     Hashtable<String,Integer> StoreCounter;                                           /*Each position stores the number of STORED received for a "String" file_No*/
+
+    Hashtable<String, Integer> ReceivedChunkCounter;
+    Hashtable<String, Integer> DeletedCounter;
+
+    Hashtable<String, Integer> ChunksControl;                                          /* Saves info regarding the PUTCHUNK controls received */
 
     Mutex storedCounterMutex;
     Mutex backupThreadMutex;                                                          /*Regulates access to */
     Mutex recoveryThreadMutex;
     Mutex commandQueueMutex;                                                          /*Regulates access to "commands" queue*/
+    Mutex receivedChunkCounterMutex;
+    Mutex deletedCounterMutex;
+    Mutex chunksControlMutex;
 
     ThreadMenu     MenuThread;                                                        /*Thread to make menu for user*/
     ThreadBackupReceive BackupReceive;
+
     Queue<String> sentQueue;                                                          /*Queue to store command sent from commandThread */
 
 
@@ -73,6 +82,10 @@ public class Peer {
         this.MCRecoverySock  = new MulticastSocket(MCRecoveryPort);                                         /*Multicast Recovery socket */
         this.MCRecoverySock.joinGroup(MCRecoveryVIP);                                                       /*Joining recovery multicast group*/
 
+        this.RestoreChannelMonitor  = new MulticastSocket(MCRecoveryPort);                                         /*Multicast Recovery socket */
+        this.RestoreChannelMonitor.joinGroup(MCRecoveryVIP);                                                       /*Joining recovery multicast group*/
+
+
         this.MCRestoreSockMutex = new Mutex();                                                              /*Initializing socket for restore socket access*/
 
         this.commands = new LinkedList<String>();                                                           /*Queue for saving commands for later execution*/
@@ -81,8 +94,14 @@ public class Peer {
 
         this.BackupThreads      = new Hashtable<String,ThreadBackupSend>();                                 /*HashTable to save Backup Threads*/
         this.StoreCounter = new Hashtable<String, Integer>();                                               /*HashTable to save STORED message information*/
+        this.ReceivedChunkCounter = new Hashtable<String, Integer>();                                       /*HashTable to save CHUNK message in Restore Channel information*/
+        this.DeletedCounter = new Hashtable<String, Integer>();
+        this.ChunksControl = new Hashtable<String, Integer>();
 
         this.storedCounterMutex = new Mutex();                                                              /*Mutex to regulate access to StoredCounterHash♀*/
+        this.receivedChunkCounterMutex = new Mutex();                                                        /*Mutex to regulate access to ReceivedChunkCounter*/
+        this.deletedCounterMutex = new Mutex();
+        this.chunksControlMutex = new Mutex();
 
         this.RecoveryThreads = new Hashtable<String,ThreadRestoreSend>();                                    /*Vector to save Recovery Threads♀*/
         this.recoveryThreadMutex = new Mutex();
@@ -110,8 +129,12 @@ public class Peer {
     void run()throws SocketException{
         this.MenuThread = new ThreadMenu(this);
         this.BackupReceive = new ThreadBackupReceive(this);
+        ThreadRestoreMonitor ts = new ThreadRestoreMonitor(this);
+
         new Thread(MenuThread).start();
         new Thread(BackupReceive).start();
+        new Thread(ts).start();
+
 
         byte[] buff= new byte[1024];                                                                        /*Buffer for control data receiving*/
         String data;                                                                                        /*String that holds received messages*/
@@ -192,7 +215,7 @@ public class Peer {
         }
         else if(currentCommand.equals("DELETE")){                                                       /**/
             String fileID = commands.poll();
-            String data = "DELETE "+ fileID +" " + '\n'+" " + '\n';
+            String data = "DELETE "+ fileID + '\r' + '\n'+ '\r' + '\n';
             DatagramPacket packet = new DatagramPacket(data.getBytes(),data.length(),MCControlVIP,MCControlPort);
             try{
                 MCControlSock.send(packet);
@@ -255,7 +278,7 @@ public class Peer {
 
     void deleteMessageHandler(String cmd){
         if (cmd == null){return;}
-        String[] msg = cmd.split(" ",2);;
+        String[] msg = cmd.split("\r",2);
         deleteThreadLaunch(msg[0]);
         logMutex.lock();
         logs.add(new Log(Log.DELETE,Log.IN, System.currentTimeMillis(),msg[0]));
