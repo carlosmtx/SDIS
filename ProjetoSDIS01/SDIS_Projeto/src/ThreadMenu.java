@@ -232,7 +232,7 @@ public class ThreadMenu implements Runnable{
         }
 
         commandQueueMutex.lock();
-        commands.add("RESTORE"); // para abrir socket de rececao
+        commands.add("RESTORE"); // para abrir socketServ de rececao
         commands.add(fileid);
         commandQueueMutex.unlock();
 

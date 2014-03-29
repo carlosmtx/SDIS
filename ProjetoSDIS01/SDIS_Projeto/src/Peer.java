@@ -77,14 +77,14 @@ public class Peer {
         this.MCBackupSock  = new MulticastSocket(MCBackupPort);                                             /*Socket for backup communications*/
         this.MCBackupSock.joinGroup(MCBackupVIP);                                                           /*Joining the multicast group*/
 
-        this.MCRecoverySock  = new MulticastSocket(MCRecoveryPort);                                         /*Multicast Recovery socket */
+        this.MCRecoverySock  = new MulticastSocket(MCRecoveryPort);                                         /*Multicast Recovery socketServ */
         this.MCRecoverySock.joinGroup(MCRecoveryVIP);                                                       /*Joining recovery multicast group*/
 
-        this.RestoreChannelMonitor  = new MulticastSocket(MCRecoveryPort);                                  /*Multicast Recovery socket */
+        this.RestoreChannelMonitor  = new MulticastSocket(MCRecoveryPort);                                  /*Multicast Recovery socketServ */
         this.RestoreChannelMonitor.joinGroup(MCRecoveryVIP);                                                /*Joining recovery multicast group*/
 
 
-        this.MCRestoreSockMutex = new Mutex();                                                              /*Initializing socket for restore socket access*/
+        this.MCRestoreSockMutex = new Mutex();                                                              /*Initializing socketServ for restore socketServ access*/
 
         this.commands = new LinkedList<String>();                                                           /*Queue for saving commands for later execution*/
         this.commandQueueMutex = new Mutex();                                                               /*Mutex for locking commands Queue*/
