@@ -26,39 +26,19 @@ public class ThreadMenu implements Runnable{
         egg.add("Vai la vai, ate a barraca abana");
         egg.add("Oh Costa, a vida Costa         ");
         egg.add("Quimico, Natural ou Assim-Assim");
-        egg.add("Directamente da Tailândia      ");
-        egg.add("Isto é que vai aqui uma açorda ");
-        egg.add("Bom e barato, só no Barata     ");
+        egg.add("Directamente da Tailandia      ");
+        egg.add("Isto e que vai aqui uma açorda ");
+        egg.add("Bom e barato, so no Barata     ");
 
     }
     void clearConsole(){
-        try
-        {
-            String os = System.getProperty("os.name");
-            if (os.contains("Windows"))
-            {
-                Runtime.getRuntime().exec("call cls").waitFor();
-            }
-            else
-            {
-                Runtime.getRuntime().exec("clear");
-            }
-        }
-        catch (Exception exception)
-        {}
+
     }
     void mainMenu()throws Exception{
         clearConsole();
         int choice=0;
         Random l = new Random();
         int msg = l.nextInt(egg.size()-1);
-
-        /*
-        System.out.println("COMO TA O BACKUPLOG:");
-        for(int i = 0; i < backupLog.size(); i++){
-            System.out.println(backupLog.get(i).fileName + " ; " + backupLog.get(i).noChunks);
-        }
-        */
 
         System.out.print(""+
                 "\n  =========================================== "+
@@ -70,8 +50,11 @@ public class ThreadMenu implements Runnable{
                 "1-Backup de Ficheiro\n" +
                 "2-Recuperar Ficheiro\n" +
                 "3-Apagar Ficheiro\n" +
-                "4-Definições\n" +
-                "5-Sair\n");
+                "4-Definicoes\n" +
+                "5-Reclamar Espaco\n"+
+                "6-Actualizar Deletes\n"+
+                "7-Enviar BigFiles\n"+
+                "8-Sair\n");
         try{choice =read.nextInt();}
         catch(InputMismatchException exp){System.out.println("Invalid Input");}
         switch (choice){
@@ -88,6 +71,13 @@ public class ThreadMenu implements Runnable{
                 settingsMenu();
                 break;
             case 5:
+                spaceReclaimMenu();
+                break;
+            case 6:
+                break;
+            case 7:
+                break;
+            case 8:
                 throw new Exception();
         }
     }
@@ -112,6 +102,23 @@ public class ThreadMenu implements Runnable{
             case 2:
                 break;
         }
+    }
+    public void spaceReclaimMenu(){
+        int size=0;
+        do{
+            clearConsole();
+            System.out.print("" +
+                    "Insira o espaco a libertar(KB):\n"
+            );
+            try{size =read.nextInt();}
+            catch(InputMismatchException exp){read.reset();System.out.println("Invalid Input");}
+        }
+        while(size < 0);
+
+        commandQueueMutex.lock();
+        commands.add("RECLAIM");
+        commands.add(""+size);
+        commandQueueMutex.unlock();
     }
     public void restoreMenu(){
         int choice=0;

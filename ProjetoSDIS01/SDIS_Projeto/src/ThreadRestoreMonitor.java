@@ -33,8 +33,9 @@ public class ThreadRestoreMonitor implements Runnable{
 
         byte[] buff = new byte[200+Peer.chunkSize];
         DatagramPacket packet = new DatagramPacket(buff,buff.length);
-        while(true){
+        while(!Peer.endProgram){
             try{
+                MCRestoreSock.setSoTimeout(100);
                 MCRestoreSock.receive(packet);
                 refreshMonitorTable(packet);
             }
@@ -43,8 +44,6 @@ public class ThreadRestoreMonitor implements Runnable{
     }
 
     private void refreshMonitorTable(DatagramPacket packet){
-        //CHUNK <Version> <FileId> <ChunkNo><CRLF> <CRLF> <Body>
-
         ByteString rec = new ByteString(packet.getData());
         rec = rec.substring(0,packet.getLength());
 

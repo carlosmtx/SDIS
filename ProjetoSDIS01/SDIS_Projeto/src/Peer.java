@@ -32,11 +32,10 @@ public class Peer {
 
     Hashtable<String,ThreadBackupSend> BackupThreads;                                 /*Each position stores a thread for backup.*/
     Hashtable<String,ThreadRestoreSend> RecoveryThreads;                              /*Each position stores a thread for recovery*/
-
     Hashtable<String,Integer> StoreCounter;                                           /*Each position stores the number of STORED received for a "String" file_No*/
 
     Hashtable<String, Integer> ReceivedChunkCounter;
-    Hashtable<String, Integer> DeletedCounter;
+    Vector<String> DeleteRecords;
 
     Hashtable<String, Integer> ChunksControl;                                          /* Saves info regarding the PUTCHUNK controls received */
 
@@ -52,7 +51,6 @@ public class Peer {
     ThreadBackupReceive BackupReceive;
 
     Queue<String> sentQueue;                                                          /*Queue to store command sent from commandThread */
-
 
     Queue<String> commands;                                                           /*Queue that stores all the commands from other threads*/
 
@@ -82,8 +80,8 @@ public class Peer {
         this.MCRecoverySock  = new MulticastSocket(MCRecoveryPort);                                         /*Multicast Recovery socket */
         this.MCRecoverySock.joinGroup(MCRecoveryVIP);                                                       /*Joining recovery multicast group*/
 
-        this.RestoreChannelMonitor  = new MulticastSocket(MCRecoveryPort);                                         /*Multicast Recovery socket */
-        this.RestoreChannelMonitor.joinGroup(MCRecoveryVIP);                                                       /*Joining recovery multicast group*/
+        this.RestoreChannelMonitor  = new MulticastSocket(MCRecoveryPort);                                  /*Multicast Recovery socket */
+        this.RestoreChannelMonitor.joinGroup(MCRecoveryVIP);                                                /*Joining recovery multicast group*/
 
 
         this.MCRestoreSockMutex = new Mutex();                                                              /*Initializing socket for restore socket access*/
@@ -95,7 +93,7 @@ public class Peer {
         this.BackupThreads      = new Hashtable<String,ThreadBackupSend>();                                 /*HashTable to save Backup Threads*/
         this.StoreCounter = new Hashtable<String, Integer>();                                               /*HashTable to save STORED message information*/
         this.ReceivedChunkCounter = new Hashtable<String, Integer>();                                       /*HashTable to save CHUNK message in Restore Channel information*/
-        this.DeletedCounter = new Hashtable<String, Integer>();
+        this.DeleteRecords = new Vector<String>();
         this.ChunksControl = new Hashtable<String, Integer>();
 
         this.storedCounterMutex = new Mutex();                                                              /*Mutex to regulate access to StoredCounterHash♀*/
@@ -114,8 +112,12 @@ public class Peer {
         try{                                                                                                /*Importing logs */
 
             ObjectInputStream in = new ObjectInputStream(
-            new BufferedInputStream(new FileInputStream("BackupLogs.mna")));
+            new BufferedInputStream(new FileInputStream("Data/BackupLogs.mna")));
             backupLog = (Vector<LogBackup>) in.readObject();
+
+            in = new ObjectInputStream(
+                    new BufferedInputStream(new FileInputStream("Data/Delete.mna")));
+            DeleteRecords = (Vector<String>) in.readObject();
         }
         catch(IOException e){}
         catch(ClassNotFoundException e){
@@ -157,19 +159,25 @@ public class Peer {
         }while(!endProgram);                                                                                /*Should we end the program??*/
 
                                                                                                             /*Saving everything ()*/
-        /*
+
         try{
 
-            OutputStream file  = new FileOutputStream("BackupLogs.mna");
+            OutputStream file  = new FileOutputStream("Data/BackupLogs.mna");
             OutputStream buffer= new BufferedOutputStream(file);
             ObjectOutput output= new ObjectOutputStream(buffer);
             output.writeObject(backupLog);
             output.close();
 
+            file  = new FileOutputStream("Data/Delete.mna");
+            buffer= new BufferedOutputStream(file);
+            output= new ObjectOutputStream(buffer);
+            output.writeObject(DeleteRecords);
+            output.close();
+
 
         }
         catch(IOException e){}
-        */
+
 
     }
 
@@ -223,10 +231,23 @@ public class Peer {
             }
             catch(IOException e){ }
         }
+        else if(currentCommand.equals("RECLAIM")){
+            long size = Integer.parseInt(commands.poll());
+            new Thread(new ThreadReclaimer(this,size)).start();
+        }
+        else if(currentCommand.equals("REMOVED")){
+           String fileID = commands.poll();
+           String chunkNo=commands.poll();
+           String data = "REMOVED "+"1.0 "+fileID+" "+chunkNo.replace(".mdr","")+"\r\n\r\n";
+           DatagramPacket packet = new DatagramPacket(data.getBytes(),data.length(),MCControlVIP,MCControlPort);
+            try{
+                MCControlSock.send(packet);
+                System.out.println("Enviei no MCControl: '" + data + "");
+            }
+            catch(IOException e){ }
+        }
         commandQueueMutex.unlock();
     }
-
-
 
     void backupSendThreadLaunch(String fileID){
         ChunkedFile file = null;
@@ -241,13 +262,14 @@ public class Peer {
         catch(SocketException e){}
     }
 
-
     void controlThreadHandler(String message,DatagramPacket packet){
         if (message == null){return;}
         String[] controls = message.split(" ",2);
+        if(controls.length < 2){return;}
 
         if     (controls[0].equalsIgnoreCase("STORED")  ){
             String[] ctrls = message.split(" ",5);
+            if(ctrls.length < 4){return;}
             String id = ctrls[2];
             String chunkNo = ctrls[3];
             receivedStoreMessagesHandler(id, chunkNo);
@@ -271,14 +293,28 @@ public class Peer {
             logs.add(new Log(Log.DELETE,Log.IN,System.currentTimeMillis(),controls[1]));
             logMutex.unlock();
         }
-        else if(controls[0].equalsIgnoreCase("REMOVED")) {System.out.println("REMOVED message detected by marisculino! Guga La");}
+        else if(controls[0].equalsIgnoreCase("REMOVED")) {
+            removedMessageHandler(controls[1]);
+        }
         else {System.out.println("Invalid");}
 
     }
+    void removedMessageHandler(String cmd){
+        String[] ctrl_a =  cmd.split(" ",3);
+        if(ctrl_a.length < 3){return;}
+        String[] ctrl_b = ctrl_a[2].split("\r",2);
+        String fileID  = ctrl_a[1];
+        String chunkNo= ctrl_b[0];
 
+        System.out.println("FileID: "+ fileID);
+        System.out.println("ChunkNo: "+chunkNo);
+    }
     void deleteMessageHandler(String cmd){
         if (cmd == null){return;}
         String[] msg = cmd.split("\r",2);
+
+        DeleteRecords.add(msg[0]);
+        System.out.println(Arrays.toString(DeleteRecords.toArray()));
         deleteThreadLaunch(msg[0]);
         logMutex.lock();
         logs.add(new Log(Log.DELETE,Log.IN, System.currentTimeMillis(),msg[0]));
@@ -325,6 +361,7 @@ public class Peer {
 
         }
     }
+
 
     void deleteThreadLaunch(String fileID){
 

@@ -54,10 +54,7 @@ public class ThreadRestoreSend implements Runnable{
 
             Random r = new Random();
             try{
-                int i = r.nextInt(399)+1;
-                System.out.println("[TRS] Vou ter de enviar " + chunkNo + " daqui a " + i + "ms");
-                Thread.sleep(r.nextInt(i));
-
+                Thread.sleep(r.nextInt(400)+1);
                 dataToSend = getInfoFromFile(this.pathChunk);
                 sendPacket(dataToSend);
 

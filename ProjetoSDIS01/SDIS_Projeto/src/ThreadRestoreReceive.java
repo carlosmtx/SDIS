@@ -102,7 +102,7 @@ public class ThreadRestoreReceive implements Runnable {
             catch(IOException e){}
         }
         if(attemptsNumber == 5){
-            System.out.println("Nao deu. Devia mandar uma excepcao .... ThreadRestoreReceive linha 96");
+            System.out.println("Nao deu.Ninguem tem o ficheiro");
             return;
         }
 
