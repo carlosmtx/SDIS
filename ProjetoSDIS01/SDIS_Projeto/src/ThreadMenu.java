@@ -76,12 +76,33 @@ public class ThreadMenu implements Runnable{
             case 6:
                 break;
             case 7:
+                bigfileMenu();
                 break;
             case 8:
                 throw new Exception();
         }
     }
 
+    public void bigfileMenu(){
+        int choice=0;
+        do{
+            clearConsole();
+            System.out.print("" +
+                    "1-Seleccionar Ficheiro\n" +
+                    "2-Voltar ao Menu Inicial\n"
+            );
+            try{choice =read.nextInt();}
+            catch(InputMismatchException exp){read.reset();System.out.println("Invalid Input");}
+        }
+        while(choice >2 && choice <1);
+        switch (choice){
+            case 1:
+                bigfileGetFileMenu();
+                break;
+            case 2:
+                break;
+        }
+    }
 
     public void backupMenu(){
         int choice=0;
@@ -208,6 +229,15 @@ public class ThreadMenu implements Runnable{
         }
     }
 
+    public void bigfileGetFileMenu(){
+        System.out.println("Insira o caminho do ficheiro:");
+        read.nextLine();
+        String path = read.nextLine();
+        File f = new File(path);
+        if(f.exists() && !f.isDirectory()) {addBigFileCommand(path);}
+        else{System.out.println("Path Invalido:Ficheiro nao existe ou e um directorio");}
+    }
+
     public void deleteMenuGetFile(){
         System.out.println("Insira o nome do ficheiro a apagar:");
         read.nextLine();
@@ -219,7 +249,13 @@ public class ThreadMenu implements Runnable{
         commands.add("BACKUP");
         commands.add(path);
         commandQueueMutex.unlock();
-        //System.out.println(Arrays.toString(commands.toArray()));
+    }
+
+    private void addBigFileCommand(String path){
+        commandQueueMutex.lock();
+        commands.add("BIGFILE");
+        commands.add(path);
+        commandQueueMutex.unlock();
     }
     private void addRestoreCommand(String filename){
         String fileid = filename;

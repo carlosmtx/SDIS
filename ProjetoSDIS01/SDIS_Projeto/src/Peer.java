@@ -10,9 +10,9 @@ import java.util.*;
  */
 public class Peer {
     static public String version="1.0";
-    static public int chunkSize=100;                                                  /*MaxSize of each chunk to be sent*/
+    static public int chunkSize=64000;                                                  /*MaxSize of each chunk to be sent*/
 
-    static public  int repDegree=3;
+    static public  int repDegree=2;
     static public boolean endProgram=false;
     InetAddress MCBackupVIP;                                                          /*Adress of multicast backUp channel*/
     InetAddress MCRecoveryVIP;                                                        /*Adress of multicast recovery channel*/
@@ -33,6 +33,8 @@ public class Peer {
     Hashtable<String,ThreadBackupSend> BackupThreads;                                 /*Each position stores a thread for backup.*/
     Hashtable<String,ThreadRestoreSend> RecoveryThreads;                              /*Each position stores a thread for recovery*/
     Hashtable<String,Integer> StoreCounter;                                           /*Each position stores the number of STORED received for a "String" file_No*/
+
+    Hashtable<String,Integer> RemovedCounter;
 
     Hashtable<String, Integer> ReceivedChunkCounter;
     Vector<String> DeleteRecords;
@@ -95,6 +97,8 @@ public class Peer {
         this.ReceivedChunkCounter = new Hashtable<String, Integer>();                                       /*HashTable to save CHUNK message in Restore Channel information*/
         this.DeleteRecords = new Vector<String>();
         this.ChunksControl = new Hashtable<String, Integer>();
+
+        this.RemovedCounter = new Hashtable<String,Integer>();
 
         this.storedCounterMutex = new Mutex();                                                              /*Mutex to regulate access to StoredCounterHash♀*/
         this.receivedChunkCounterMutex = new Mutex();                                                        /*Mutex to regulate access to ReceivedChunkCounter*/
@@ -193,6 +197,10 @@ public class Peer {
             String filename = commands.poll();                                                          /*The user needs to backup the file:fileName*/
             backupSendThreadLaunch(filename);                                                           /*Better send someone. John... plz summon a backupThread*/
         }
+        else if(currentCommand.equals("BIGFILE")){
+            String fileid = commands.poll();
+            bigfileSendThreadLaunch(fileid);
+        }
         else if(currentCommand.equals("RESTORE")){                                                      /*The user!!! OH My God he needs to restore a file*/
             String fileid = commands.poll();                                                             /*What file does he want? Oh...Look...A fileID.  JOHN!!*/
             recoveryReceiveThreadLaunch(fileid);                                                         /*John plz summon a restore thread*/
@@ -227,7 +235,7 @@ public class Peer {
             DatagramPacket packet = new DatagramPacket(data.getBytes(),data.length(),MCControlVIP,MCControlPort);
             try{
                 MCControlSock.send(packet);
-                System.out.println("Enviei no MCControl: '" + data + "'");
+                //System.out.println("Enviei no MCControl: '" + data + "'");
             }
             catch(IOException e){ }
         }
@@ -242,7 +250,7 @@ public class Peer {
            DatagramPacket packet = new DatagramPacket(data.getBytes(),data.length(),MCControlVIP,MCControlPort);
             try{
                 MCControlSock.send(packet);
-                System.out.println("Enviei no MCControl: '" + data + "");
+                //System.out.println("Enviei no MCControl: '" + data + "");
             }
             catch(IOException e){ }
         }
@@ -294,11 +302,65 @@ public class Peer {
             logMutex.unlock();
         }
         else if(controls[0].equalsIgnoreCase("REMOVED")) {
+            String[] ctrls = message.split(" ", 5);
             removedMessageHandler(controls[1]);
+        }
+        else if(controls[0].equalsIgnoreCase("BACKUPBIGFILE")){
+            String[] ctrls = message.split(" ", 5);
+            String ip = ctrls[2];
+            String rest = ctrls[3];
+            ctrls = rest.split("\r", 2);
+            String port = ctrls[0];
+            bigfileMessageHandler(ip,port);
+
         }
         else {System.out.println("Invalid");}
 
     }
+
+
+    void  bigfileMessageHandler(String ip, String port){
+        //System.out.println("IP: " + "'" + ip + "' PORT: '" + port + "'");
+        ObjectReceiver receiver = new ObjectReceiver(ip,port);
+        ChunkedFile file2=(ChunkedFile)receiver.getObject();
+
+        if(file2 != null){
+            writeChunksToFiles(file2);
+        }
+        else{
+            //System.out.println("Tenho que ser mais rapido :( Assim como o sonic");
+        }
+    }
+
+    void writeChunksToFiles(ChunkedFile f){
+        ArrayList<byte[]> chunks = f.chunkFile();
+        String fileid = f.getHash();
+
+        for(int i =0; i < chunks.size(); i++){
+            try{
+                File dir = new File("BackupFiles");
+                if (!dir.exists()) {
+                    dir.mkdir();
+                }
+                dir = new File("BackupFiles/"+fileid);
+                if (!dir.exists()) {
+                    dir.mkdir();
+                }
+
+                File file = new File("BackupFiles/"+fileid+"/"+i+".mdr");
+                if (!file.exists()) {
+                    file.createNewFile();
+                }
+
+                FileOutputStream fw = new FileOutputStream(file);
+                fw.write(chunks.get(i));
+                fw.close();
+            }
+            catch(IOException e){}
+            catch(Exception e){System.out.println("[BIGFILE] Escrita parou em " + i);}
+        }
+    }
+
     void removedMessageHandler(String cmd){
         String[] ctrl_a =  cmd.split(" ",3);
         if(ctrl_a.length < 3){return;}
@@ -306,15 +368,16 @@ public class Peer {
         String fileID  = ctrl_a[1];
         String chunkNo= ctrl_b[0];
 
-        System.out.println("FileID: "+ fileID);
-        System.out.println("ChunkNo: "+chunkNo);
+        RemovedCounter.put(fileID+"_"+chunkNo, 1);
+
+        new Thread(new ThreadRemoved(this, fileID, chunkNo)).start();
     }
     void deleteMessageHandler(String cmd){
         if (cmd == null){return;}
         String[] msg = cmd.split("\r",2);
 
         DeleteRecords.add(msg[0]);
-        System.out.println(Arrays.toString(DeleteRecords.toArray()));
+        //System.out.println(Arrays.toString(DeleteRecords.toArray()));
         deleteThreadLaunch(msg[0]);
         logMutex.lock();
         logs.add(new Log(Log.DELETE,Log.IN, System.currentTimeMillis(),msg[0]));
@@ -388,4 +451,21 @@ public class Peer {
         new Thread(new ThreadRestoreReceive(this, fileid)).start();
     }
 
+    void bigfileSendThreadLaunch(String fileid){
+        ChunkedFile file= new ChunkedFile(fileid,chunkSize,repDegree);
+        ObjectSender sender = new ObjectSender(file);
+
+        String data = "BACKUPBIGFILE " + version + " " +  sender.getIP() + " " + sender.getPort() + "\r\n\r\n";
+
+        DatagramPacket packet = new DatagramPacket(data.getBytes(),data.length(),MCControlVIP,MCControlPort);
+        try{MCControlSock.send(packet);}
+        catch(IOException e){ }
+        try{Thread.sleep(500);}catch(Exception e){}
+
+        backupLog.add(new LogBackup(file));
+
+
+        new Thread(sender).start();
+        try{Thread.sleep(200);}catch(Exception e){}
+    }
 }

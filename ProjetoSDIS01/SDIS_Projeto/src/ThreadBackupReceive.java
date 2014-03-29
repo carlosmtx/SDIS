@@ -24,6 +24,8 @@ public class ThreadBackupReceive implements Runnable {
     Hashtable<String,Integer> StoreCounter;
     Mutex storedCounterMutex;
 
+    Hashtable<String,Integer> RemovedCounter;
+
     Queue<String> commands;
     Mutex commandQueueMutex;
 
@@ -45,6 +47,7 @@ public class ThreadBackupReceive implements Runnable {
 
         this.ChunksControl = new Hashtable<String, Integer>();
         this.chunksControlMutex = new Mutex();
+        this.RemovedCounter = peer.RemovedCounter;
 
     }
     public void handlerQueue(){
@@ -76,7 +79,6 @@ public class ThreadBackupReceive implements Runnable {
     }
     public void packetHandler(DatagramPacket packet){
         // RECEBE PUTCHUNK
-
         ByteString packetReceived = new ByteString(packet.getData());
         packetReceived = packetReceived.substring(packet.getOffset(),packet.getLength());
         int i = packet.getLength();
@@ -116,6 +118,12 @@ public class ThreadBackupReceive implements Runnable {
         //String s = new String(content.getBytes());
         //System.out.println("[TBR] Recebi pacote " + (new String(chunkNo.getBytes())) + " com " + packet.getLength() +"\n[TBR] Com Conteudo " +
         //        "***\n" + s + "***");
+
+        String ind = id + "_" + no;
+        if(RemovedCounter.get(ind) != null){
+            // Ignorar pacote porque é enviado pelo proprio quando se aloca espaco
+            return;
+        }
 
         Random r = new Random();
         ThreadBackupReceiveScheduleEntry newEntry = new ThreadBackupReceiveScheduleEntry(r.nextInt(399)+1, fileId, chunkNo, content, repDeg);

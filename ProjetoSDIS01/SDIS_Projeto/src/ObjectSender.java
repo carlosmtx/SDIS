@@ -43,6 +43,8 @@ public class ObjectSender implements Runnable{
             oos.close();
             os.close();
             socket.close();
+
+
         }
         catch(IOException e){
             e.printStackTrace();

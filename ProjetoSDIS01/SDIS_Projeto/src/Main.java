@@ -9,6 +9,7 @@ public class Main {
     public static void main(String[] args){
 
         Peer a = null;
+        /*
         ChunkedFile file= new ChunkedFile("file.txt",1000,3);
 
         ObjectSender sender = new ObjectSender(file);
@@ -17,6 +18,8 @@ public class Main {
 
         ObjectReceiver receiver = new ObjectReceiver(sender.getIP(),sender.getPort());
         ChunkedFile file2=(ChunkedFile)receiver.getObject();
+
+        */
 
         try{
             a=new Peer("225.4.5.6",2000,"225.4.5.6",2001,"225.4.5.6",2002);

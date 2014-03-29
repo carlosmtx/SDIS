@@ -26,7 +26,7 @@ public class ObjectReceiver{
             obj = ois.readObject();
         }
         catch(UnknownHostException e){e.printStackTrace();}
-        catch (IOException e){e.printStackTrace();}
+        catch (IOException e){}
         catch (ClassNotFoundException e){e.printStackTrace();}
         return obj;
 

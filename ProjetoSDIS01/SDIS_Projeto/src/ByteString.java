@@ -48,6 +48,12 @@ public class ByteString {
     }
     void add(ByteString b){
         ByteString a = this;
+
+        if(b.myByte == null){
+            return;
+        }
+
+
         byte[] full=new byte[this.length()+b.length()];
         int i;
         for(i = 0 ; i < a.length() ; i++){
