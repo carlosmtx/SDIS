@@ -11,6 +11,7 @@ public class ThreadMenu implements Runnable{
     Queue<String> commands;
     Scanner read;
 
+    Peer temp;
     Vector<LogBackup> backupLog;
 
     Vector<String> egg;
@@ -20,15 +21,16 @@ public class ThreadMenu implements Runnable{
         this.backupLog = p.backupLog;
         read = new Scanner(System.in);
 
-        /* egg */
         egg = new Vector<String>();
         egg.add("Cabecinha Pensadoooora         ");
-        egg.add("Vai la vai, ate a barraca abana");
-        egg.add("Oh Costa, a vida Costa         ");
-        egg.add("Quimico, Natural ou Assim-Assim");
+        egg.add("Vai la vai  ate a barraca abana");
+        egg.add("Oh Costa  a vida Costa         ");
+        egg.add("Quimico  Natural ou Assim Assim");
         egg.add("Directamente da Tailandia      ");
-        egg.add("Isto e que vai aqui uma açorda ");
-        egg.add("Bom e barato, so no Barata     ");
+        egg.add("Isto e que vai aqui uma acorda ");
+        egg.add("Bom e barato  so no Barata     ");
+
+        this.temp = p;
 
     }
     void clearConsole(){
@@ -50,10 +52,10 @@ public class ThreadMenu implements Runnable{
                 "1-Backup de Ficheiro\n" +
                 "2-Recuperar Ficheiro\n" +
                 "3-Apagar Ficheiro\n" +
-                "4-Definicoes\n" +
+                "4-Backup de BigFiles\n" +
                 "5-Reclamar Espaco\n"+
                 "6-Actualizar Deletes\n"+
-                "7-Enviar BigFiles\n"+
+                "7-Definicoes\n"+
                 "8-Sair\n");
         try{choice =read.nextInt();}
         catch(InputMismatchException exp){System.out.println("Invalid Input");}
@@ -67,19 +69,30 @@ public class ThreadMenu implements Runnable{
             case 3:
                 fileDeletion();
                 break;
-            case 4:
+            case 7:
                 settingsMenu();
                 break;
             case 5:
                 spaceReclaimMenu();
                 break;
             case 6:
+                refreshDeleteData();
                 break;
-            case 7:
+            case 4:
                 bigfileMenu();
                 break;
             case 8:
                 throw new Exception();
+            case 9:
+                printDeleteInfo();
+                break;
+        }
+    }
+
+    void printDeleteInfo(){
+        System.out.println("Deletes:");
+        for(int i = 0; i < temp.DeleteRecords.size(); i++){
+            System.out.println(i + "- " + temp.DeleteRecords.get(i));
         }
     }
 
@@ -185,7 +198,8 @@ public class ThreadMenu implements Runnable{
         int choice;
         System.out.print("" +
                 "1-Alterar Grau de Replicacao\n" +
-                "2-Voltar ao Menu Inicial\n"
+                "2-Alterar Tamanho de Chunk\n" +
+                "3-Voltar ao Menu Inicial\n"
         );
         try{choice =read.nextInt();}
         catch(InputMismatchException exp){System.out.println("Invalid Input");return;}
@@ -193,14 +207,19 @@ public class ThreadMenu implements Runnable{
             System.out.print("Introduza o grau de replicacao:  ");
         }
         else if(choice == 2){
+            System.out.print("Introduza o tamanho de chunk:  ");
+        }
+        else if(choice == 3){
             return;
         }
+        int newValue;
         try{
-            choice =read.nextInt();
+            newValue =read.nextInt();
         }
         catch(InputMismatchException exp){System.out.println("Invalid Input");return;}
 
-        Peer.repDegree = choice;
+        if(choice == 1) Peer.repDegree = newValue;
+        if(choice == 2) Peer.chunkSize = newValue;
     }
     public void backupMenuGetFile(){
         System.out.println("Insira o caminho do ficheiro:");
@@ -289,6 +308,11 @@ public class ThreadMenu implements Runnable{
         //System.out.println(Arrays.toString(commands.toArray()));
     }
 
+    public void refreshDeleteData(){
+        commandQueueMutex.lock();
+        commands.add("GETDELETE");
+        commandQueueMutex.unlock();
+    }
 
     public void run(){
         try{

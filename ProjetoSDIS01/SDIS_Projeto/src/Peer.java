@@ -10,7 +10,7 @@ import java.util.*;
  */
 public class Peer {
     static public String version="1.0";
-    static public int chunkSize=64000;                                                  /*MaxSize of each chunk to be sent*/
+    static public int chunkSize=200;                                                  /*MaxSize of each chunk to be sent*/
 
     static public  int repDegree=2;
     static public boolean endProgram=false;
@@ -38,6 +38,9 @@ public class Peer {
 
     Hashtable<String, Integer> ReceivedChunkCounter;
     Vector<String> DeleteRecords;
+
+    Boolean waitingForDeleteObj;
+    Boolean deleteObjAlreadySent;
 
     Hashtable<String, Integer> ChunksControl;                                          /* Saves info regarding the PUTCHUNK controls received */
 
@@ -131,6 +134,9 @@ public class Peer {
         this.logMutex = new Mutex();
         this.logs = new Vector<Log>();
 
+        this.waitingForDeleteObj = false;
+        this.deleteObjAlreadySent = false;
+
     }
     void run()throws SocketException{
         this.MenuThread = new ThreadMenu(this);
@@ -211,7 +217,7 @@ public class Peer {
 
             String fileID = commands.poll();                                                            /*Let's see what the fileID is*/
             String chunkNo = commands.poll();                                                           /*He probabily sent us the chunkNo*/
-            String data = "STORED " + version + " " + fileID + " " + chunkNo + " \n \n";                /*Let's deliver the message*/
+            String data = "STORED " + version + " " + fileID + " " + chunkNo + "\r\n\r\n";                /*Let's deliver the message*/
             DatagramPacket packet = new DatagramPacket(data.getBytes(),data.length(),MCControlVIP,MCControlPort);   /*Just putting it in the envelope*/
             try{MCControlSock.send(packet);}                                                            /*William watch how fast it goes! Perfect ^^ */
             catch(IOException e){ }
@@ -231,13 +237,16 @@ public class Peer {
         }
         else if(currentCommand.equals("DELETE")){                                                       /**/
             String fileID = commands.poll();
-            String data = "DELETE "+ fileID + '\r' + '\n'+ '\r' + '\n';
+            String data = "DELETE "+ fileID + "\r\n\r\n";
+
+
             DatagramPacket packet = new DatagramPacket(data.getBytes(),data.length(),MCControlVIP,MCControlPort);
             try{
                 MCControlSock.send(packet);
                 //System.out.println("Enviei no MCControl: '" + data + "'");
             }
             catch(IOException e){ }
+            //System.out.println("Enviou '" + new String(packet.getData()) + "'");
         }
         else if(currentCommand.equals("RECLAIM")){
             long size = Integer.parseInt(commands.poll());
@@ -246,13 +255,30 @@ public class Peer {
         else if(currentCommand.equals("REMOVED")){
            String fileID = commands.poll();
            String chunkNo=commands.poll();
-           String data = "REMOVED "+"1.0 "+fileID+" "+chunkNo.replace(".mdr","")+"\r\n\r\n";
+           String data = "REMOVED "+ Peer.version + " " +fileID+" "+chunkNo.replace(".mdr","")+"\r\n\r\n";
            DatagramPacket packet = new DatagramPacket(data.getBytes(),data.length(),MCControlVIP,MCControlPort);
             try{
                 MCControlSock.send(packet);
                 //System.out.println("Enviei no MCControl: '" + data + "");
             }
             catch(IOException e){ }
+        }
+        else if(currentCommand.equals("GETDELETE")){
+            ObjectServer o = new ObjectServer();
+
+            this.waitingForDeleteObj = true;
+            String data = "GETDELETE " + version + " " + o.getIP() + " " + o.getPort() + "\r\n\r\n";
+            DatagramPacket packet = new DatagramPacket(data.getBytes(),data.length(),MCControlVIP,MCControlPort);
+            try{
+                MCControlSock.send(packet);
+            }
+            catch(IOException e){ }
+
+            this.DeleteRecords = (Vector<String>)o.getObject();
+
+            for(int i = 0; i < DeleteRecords.size(); i++){
+                new Thread(new ThreadDelete(this, DeleteRecords.get(i))).start();
+            }
         }
         commandQueueMutex.unlock();
     }
@@ -273,13 +299,20 @@ public class Peer {
     void controlThreadHandler(String message,DatagramPacket packet){
         if (message == null){return;}
         String[] controls = message.split(" ",2);
+        String[] ver = message.split(" ",3);
+
         if(controls.length < 2){return;}
+        if(ver.length < 3){return;}
+
+        String version = ver[1];
+        if(!version.equalsIgnoreCase(Peer.version)){return;}
 
         if     (controls[0].equalsIgnoreCase("STORED")  ){
             String[] ctrls = message.split(" ",5);
             if(ctrls.length < 4){return;}
             String id = ctrls[2];
-            String chunkNo = ctrls[3];
+            String[] ctrls2 = ctrls[3].split("\r");
+            String chunkNo = ctrls2[0];
             receivedStoreMessagesHandler(id, chunkNo);
             logMutex.lock();
             logs.add(new Log(Log.STORED,Log.IN,System.currentTimeMillis(),id,Integer.parseInt(chunkNo),packet.getAddress()));
@@ -312,23 +345,43 @@ public class Peer {
             ctrls = rest.split("\r", 2);
             String port = ctrls[0];
             bigfileMessageHandler(ip,port);
+        }
+        else if(controls[0].equalsIgnoreCase("GETDELETE")){
+            if(!this.waitingForDeleteObj){
+                //System.out.println("ALGUEM PEDIU O DELETE ATUALIZADO");
+                String[] ctrls = message.split(" ", 5);
+                String ip = ctrls[2];
+                String rest = ctrls[3];
+                ctrls = rest.split("\r", 2);
+                String port = ctrls[0];
+                getDeleteObjMessageHandler(ip,port);
+            }
+            else{
+                //System.out.println("Recebi o meu proprio GETDELETE tehee");
+            }
 
         }
+
         else {System.out.println("Invalid");}
 
     }
 
 
-    void  bigfileMessageHandler(String ip, String port){
+    void getDeleteObjMessageHandler(String ip, String port){
+
+        new Thread(new ObjectClient(ip,port,this.DeleteRecords)).start();
+
+    }
+
+    void bigfileMessageHandler(String ip, String port){
         //System.out.println("IP: " + "'" + ip + "' PORT: '" + port + "'");
-        ObjectReceiver receiver = new ObjectReceiver(ip,port);
+        ObjectClient receiver = new ObjectClient(ip,port);
         ChunkedFile file2=(ChunkedFile)receiver.getObject();
 
         if(file2 != null){
             writeChunksToFiles(file2);
         }
         else{
-            //System.out.println("Tenho que ser mais rapido :( Assim como o sonic");
         }
     }
 
@@ -425,7 +478,6 @@ public class Peer {
         }
     }
 
-
     void deleteThreadLaunch(String fileID){
 
         new Thread(new ThreadDelete(this,fileID)).start();
@@ -453,7 +505,7 @@ public class Peer {
 
     void bigfileSendThreadLaunch(String fileid){
         ChunkedFile file= new ChunkedFile(fileid,chunkSize,repDegree);
-        ObjectSender sender = new ObjectSender(file);
+        ObjectServer sender = new ObjectServer(file);
 
         String data = "BACKUPBIGFILE " + version + " " +  sender.getIP() + " " + sender.getPort() + "\r\n\r\n";
 
@@ -463,7 +515,6 @@ public class Peer {
         try{Thread.sleep(500);}catch(Exception e){}
 
         backupLog.add(new LogBackup(file));
-
 
         new Thread(sender).start();
         try{Thread.sleep(200);}catch(Exception e){}
