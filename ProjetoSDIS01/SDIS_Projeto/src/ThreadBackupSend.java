@@ -53,19 +53,23 @@ public class ThreadBackupSend implements Runnable{
         backupThreadMutex.unlock();                                                                                 /*Unlocking resource*/
     }
     public void run(){
+        int time = 1000;
         ArrayList<byte[]> aux = file.chunkFile();                                                                   /*Obtaining the file divided in chunks*/
-        System.out.println("Vou enviar chunks: " +aux.size());
-        for(int i = 0; i < aux.size(); i++){                                                                        /*Sending all the chunks*/
-            sendPacket(i,file.getRepDegree(),aux);
-        }
-        /*
-        for ( int i = 0 ; i < chunksStored.length ; i++){
-            if (chunksStored[i] < file.getRepDegree()){
-               sendPacket(i,file.getRepDegree()-chunksStored[i],aux);
+        //System.out.println("Vou enviar chunks: " +aux.size());
+        Boolean end = false;
+        for(int j = 0; j < 5 && !Peer.endProgram && !end; j++){
+            for(int i = 0; i < aux.size(); i++){                                                                        /*Sending all the chunks*/
+                if(chunksStored[i] < Peer.repDegree){
+                    sendPacket(i,file.getRepDegree(),aux);
+                }
             }
+            end = true;
+            for(int i = 0; i < chunksStored.length; i++){
+                if(chunksStored[i] < Peer.repDegree){
+                    end = false;
+                }
+            }
+            try{Thread.sleep(time); time = time*2;}catch (InterruptedException e){};
         }
-        */
-
-
     }
 }

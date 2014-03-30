@@ -13,6 +13,7 @@ public class ThreadMenu implements Runnable{
 
     Peer temp;
     Vector<LogBackup> backupLog;
+    int msg;
 
     Vector<String> egg;
     ThreadMenu(Peer p){
@@ -22,6 +23,7 @@ public class ThreadMenu implements Runnable{
         read = new Scanner(System.in);
 
         egg = new Vector<String>();
+        egg.add("Backup Ficheiros SDIS 2013-2014");
         egg.add("Cabecinha Pensadoooora         ");
         egg.add("Vai la vai  ate a barraca abana");
         egg.add("Oh Costa  a vida Costa         ");
@@ -31,6 +33,7 @@ public class ThreadMenu implements Runnable{
         egg.add("Bom e barato  so no Barata     ");
 
         this.temp = p;
+        msg = 0;
 
     }
     void clearConsole(){
@@ -40,8 +43,6 @@ public class ThreadMenu implements Runnable{
         clearConsole();
         int choice=0;
         Random l = new Random();
-        int msg = l.nextInt(egg.size()-1);
-
         System.out.print(""+
                 "\n  =========================================== "+
                 "\n||   " + egg.get(msg)+ "  " + Peer.version +"   ||"+
@@ -57,8 +58,10 @@ public class ThreadMenu implements Runnable{
                 "6-Actualizar Deletes\n"+
                 "7-Definicoes\n"+
                 "8-Sair\n");
-        try{choice =read.nextInt();}
-        catch(InputMismatchException exp){System.out.println("Invalid Input");}
+        try{
+            choice =read.nextInt();
+        }
+        catch(InputMismatchException exp){System.out.println("Invalid Input");read.nextLine();}
         switch (choice){
             case 1:
                 backupMenu();
@@ -83,8 +86,11 @@ public class ThreadMenu implements Runnable{
                 break;
             case 8:
                 throw new Exception();
-            case 9:
-                printDeleteInfo();
+            case 420:
+                msg = l.nextInt(egg.size()-1);
+                System.out.println("EasterEgg It");
+                break;
+            default:
                 break;
         }
     }
@@ -126,7 +132,7 @@ public class ThreadMenu implements Runnable{
                     "2-Voltar ao Menu Inicial\n"
             );
             try{choice =read.nextInt();}
-            catch(InputMismatchException exp){read.reset();System.out.println("Invalid Input");}
+            catch(InputMismatchException exp){System.out.println("Invalid Input") ; read.nextLine();}
         }
         while(choice >2 && choice <1);
         switch (choice){
@@ -145,7 +151,7 @@ public class ThreadMenu implements Runnable{
                     "Insira o espaco a libertar(KB):\n"
             );
             try{size =read.nextInt();}
-            catch(InputMismatchException exp){read.reset();System.out.println("Invalid Input");}
+            catch(InputMismatchException exp){read.reset();System.out.println("Invalid Input"); read.nextLine();}
         }
         while(size < 0);
 
@@ -163,7 +169,7 @@ public class ThreadMenu implements Runnable{
                     "2-Voltar ao Menu Inicial\n"
             );
             try{choice =read.nextInt();}
-            catch(InputMismatchException exp){read.reset();System.out.println("Invalid Input");}
+            catch(InputMismatchException exp){read.reset();System.out.println("Invalid Input"); read.nextLine();}
         }
         while(choice >2 && choice <1);
         switch (choice){
@@ -183,7 +189,7 @@ public class ThreadMenu implements Runnable{
                     "2-Voltar ao Menu Inicial\n"
             );
             try{choice =read.nextInt();}
-            catch(InputMismatchException exp){read.reset();System.out.println("Invalid Input");}
+            catch(InputMismatchException exp){read.reset();System.out.println("Invalid Input"); read.nextLine();}
         }
         while(choice >2 && choice <1);
         switch (choice){
@@ -202,7 +208,7 @@ public class ThreadMenu implements Runnable{
                 "3-Voltar ao Menu Inicial\n"
         );
         try{choice =read.nextInt();}
-        catch(InputMismatchException exp){System.out.println("Invalid Input");return;}
+        catch(InputMismatchException exp){System.out.println("Invalid Input");read.nextLine();return;}
         if(choice == 1){
             System.out.print("Introduza o grau de replicacao:  ");
         }
@@ -216,7 +222,7 @@ public class ThreadMenu implements Runnable{
         try{
             newValue =read.nextInt();
         }
-        catch(InputMismatchException exp){System.out.println("Invalid Input");return;}
+        catch(InputMismatchException exp){System.out.println("Invalid Input");read.nextLine();return;}
 
         if(choice == 1) Peer.repDegree = newValue;
         if(choice == 2) Peer.chunkSize = newValue;

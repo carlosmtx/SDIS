@@ -10,7 +10,7 @@ import java.util.*;
  */
 public class Peer {
     static public String version="1.0";
-    static public int chunkSize=200;                                                  /*MaxSize of each chunk to be sent*/
+    static public int chunkSize=64000;                                                  /*MaxSize of each chunk to be sent*/
 
     static public  int repDegree=2;
     static public boolean endProgram=false;
